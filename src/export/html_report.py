@@ -22,15 +22,24 @@ def generate_html_report(
     analytics: dict[str, Any],
     icon_paths_by_name: dict[str, str],
     output_path: str | Path,
+    cards_dir: str | Path | None = None,
 ) -> Path:
     """Build a self-contained single-file interactive HTML report for tournament roster analysis."""
     icons_b64 = {
         name: _encode_png_b64(p) for name, p in icon_paths_by_name.items() if p and Path(p).is_file()
     }
+    embedded_cards: dict[str, str] = {}
+    if cards_dir is not None:
+        cdir = Path(cards_dir)
+        dp_card = cdir / "02_copy_count_impact.png"
+        if dp_card.is_file():
+            embedded_cards["copy_impact"] = _encode_png_b64(dp_card)
+
     embedded_payload = {
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
         "analytics": {k: v for k, v in analytics.items() if k != "recognition_errors"},
         "icons": icons_b64,
+        "cards": embedded_cards,
     }
     json_blob = json.dumps(embedded_payload, ensure_ascii=False).replace("</", "<\\/")
     safe_title = html.escape(analytics.get("report_title", "排位賽戰隊排陣分析報告"))
@@ -132,6 +141,11 @@ def generate_html_report(
     </div>
     <div class="card">
       <h2>職業環境總表</h2>
+      <div class="sub" style="background:#0f172a;border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:12px;line-height:1.65">
+        💡 <b>指標說明：</b><br>
+        • <b>高排 Lift（優勢比）</b>＝前段班（Top 50 / Top 10）攜帶率 ÷ 全體攜帶率。<b>&gt; 1.0x</b> 代表高端局更偏愛（越高越偏向高端黑馬）；<b>≈ 1.0x</b> 代表各分段普及度差不多；<b>&lt; 1.0x</b> 代表偏中後段帶得多。<br>
+        • <b>Spearman r（排名相關係數，-1 ～ +1）</b>＝衡量「帶越多隻該職業，名次是否越靠前」。因名次數字越小越強，<b>負值（綠色，如 -0.20）代表強勢職業</b>；接近 0 代表與名次無明顯關聯；<b>正值（紅色）代表偏向後段班</b>。
+      </div>
       <div class="table-wrap"><table id="occTable"></table></div>
     </div>
   </section>
@@ -139,8 +153,12 @@ def generate_html_report(
   <section id="tab-doubles" class="panel">
     <div class="card">
       <h2>0 隻 vs 1 隻（單帶）vs 2 隻（滿編雙開）平均排名對比</h2>
-      <p class="sub">賽制規定 8 人名單同職業最多 2 名。下表直接呈現各職業從「單帶」升級為「滿編雙開」時，平均排名的提升（正值＝雙開名次更靠前）。</p>
-      <div class="table-wrap"><table id="copyTable"></table></div>
+      <p class="sub">賽制規定 8 人名單同職業最多 2 名。圖中越靠<b>右側</b>代表平均排名越高，紅菱（帶 2 隻）明顯在藍方（帶 1 隻）右邊即代表該職業非常值得雙開！</p>
+      <div id="copyChartWrap" style="margin:12px 0"></div>
+      <details style="margin-top:12px">
+        <summary style="cursor:pointer;color:var(--accent);font-weight:600">📋 展開查看 0 / 1 / 2 隻原始數值明細表</summary>
+        <div class="table-wrap" style="margin-top:10px"><table id="copyTable"></table></div>
+      </details>
     </div>
   </section>
 
@@ -242,15 +260,30 @@ document.querySelectorAll('.tab').forEach(btn => btn.onclick = () => {{
     <text x="${{W-padR-8}}" y="${{H-padB-10}}" text-anchor="end" fill="#fbbf24" font-size="11.5" font-weight="700">⚖️ 普及標配</text>
     <text x="${{padL+8}}" y="${{H-padB-10}}" text-anchor="start" fill="#94a3b8" font-size="11.5" font-weight="700">🧊 冷門職</text>
     <text x="${{W/2}}" y="${{H-12}}" text-anchor="middle" fill="#cbd5e1" font-size="12">隊伍攜帶率 (%) →</text>
-    <text x="16" y="${{H/2}}" text-anchor="middle" fill="#cbd5e1" font-size="12" transform="rotate(-90 16 ${{H/2}})">平均排名（越上方越高排 ↑）</text>
+    <text x="20" y="${{H/2 - 86}}" text-anchor="middle" fill="#cbd5e1" font-size="12" font-weight="700">
+      <tspan x="20" dy="0">↑</tspan>
+      <tspan x="20" dy="16">排</tspan>
+      <tspan x="20" dy="16">名</tspan>
+      <tspan x="20" dy="16">越</tspan>
+      <tspan x="20" dy="16">高</tspan>
+      <tspan x="20" dy="26">平</tspan>
+      <tspan x="20" dy="16">均</tspan>
+      <tspan x="20" dy="16">排</tspan>
+      <tspan x="20" dy="16">名</tspan>
+    </text>
     ${{items}}
   </svg>`;
 }})();
 
 document.getElementById('occTable').innerHTML =
-  '<thead><tr><th>職業</th><th>Meta 象限</th><th>攜帶率(隊數)</th><th>總人次佔比</th><th>雙開率(隊數)</th><th>平均排名</th><th>高排Lift</th><th>Spearman r</th></tr></thead><tbody>' +
+  '<thead><tr><th>職業</th><th>Meta 象限</th><th>攜帶率(隊數)</th><th>總人次佔比</th><th>雙開率(隊數)</th><th>平均排名</th><th title="前段班攜帶率 ÷ 全體攜帶率，>1.0x 代表高端局更偏愛">高排Lift ⓘ</th><th title="負值代表帶越多隻排名越高，正值偏向後段班">Spearman r ⓘ</th></tr></thead><tbody>' +
   A.occupation_frequency.map(r => `<tr><td><span class="lbl-flex">${{ico(r.occupation)}}${{esc(r.occupation)}}</span></td><td><span class="q-tag ${{qCls(r.quadrant)}}">${{esc(r.quadrant)}}</span></td><td><b>${{pct(r.team_presence_rate)}}</b> (${{r.team_count}}隊)</td><td>${{pct(r.slot_rate)}} (${{r.slot_count}})</td><td>${{pct(r.double_pick_rate)}} (${{r.double_pick_teams}}隊)</td><td><b>#${{r.avg_rank}}</b></td><td>${{r.top_tier_lift}}x</td><td class="${{r.spearman_r<=-0.15?'pos':r.spearman_r>=0.15?'neg':''}}">${{r.spearman_r}}</td></tr>`).join('') +
   '</tbody>';
+
+const CARDS = DATA.cards || {{}};
+if (CARDS.copy_impact) {{
+  document.getElementById('copyChartWrap').innerHTML = `<img src="${{CARDS.copy_impact}}" alt="0隻 vs 1隻 vs 2隻 平均排名影響" style="width:100%;max-width:1100px;display:block;margin:0 auto;border-radius:12px;border:1px solid var(--border)">`;
+}}
 
 const fmtB = b => b && b.teams ? `<b>#${{b.avg_rank}}</b> <span class="sub">(${{b.teams}}隊${{b.low_sample?', n<5':''}})</span>` : '<span class="sub">-</span>';
 document.getElementById('copyTable').innerHTML =

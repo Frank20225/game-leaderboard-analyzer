@@ -59,8 +59,9 @@ def run_phase4_5(
 
     excel_full_path = write_excel_report(analytics, run_path / "report.xlsx", include_errors_sheet=True)
     excel_public_path = write_excel_report(analytics, share_dir / "report_public.xlsx", include_errors_sheet=False)
-    html_path = generate_html_report(analytics, icon_map, share_dir / "report.html")
+    # Generate share cards FIRST so html_report can embed 02_copy_count_impact.png inline as Base64
     card_paths = generate_share_cards(analytics, icon_map, share_dir / "cards")
+    html_path = generate_html_report(analytics, icon_map, share_dir / "report.html", cards_dir=share_dir / "cards")
     summary_path = share_dir / "summary.md"
     summary_text = generate_text_summary(analytics, summary_path)
 

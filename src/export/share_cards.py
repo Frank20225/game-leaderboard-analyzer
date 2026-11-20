@@ -147,7 +147,16 @@ def generate_share_cards(
         )
 
     ax.set_xlabel("隊伍攜帶率 (%)", color="#e2e8f0", fontsize=11.5, fontweight="bold")
-    ax.set_ylabel("攜帶隊伍平均排名（越上方排名越高 ↑）", color="#e2e8f0", fontsize=11.5, fontweight="bold")
+    ax.set_ylabel(
+        "↑\n排\n名\n越\n高\n\n平\n均\n排\n名",
+        color="#e2e8f0",
+        fontsize=11,
+        fontweight="bold",
+        rotation=0,
+        ha="center",
+        va="center",
+        labelpad=22,
+    )
     ax.tick_params(colors="#cbd5e1")
     ax.grid(True, color="#334155", linestyle=":", alpha=0.55)
     for spine in ax.spines.values():
@@ -162,20 +171,32 @@ def generate_share_cards(
     # ------------------------------------------------------------------
     # Card 2: 0 vs 1 vs 2 Copies Marginal Rank Impact (Double-Pick ROI)
     # ------------------------------------------------------------------
-    # Focus on occupations that have at least 1 team carrying them
-    top_dp = [r for r in occ_list if r["team_count"] >= 2][:13][::-1]
-    fig, ax = plt.subplots(figsize=(11.5, max(6.2, len(top_dp) * 0.54)), facecolor="#0f172a")
+    top_dp = [r for r in occ_list if r["team_count"] >= 1][::-1]
+    fig, ax = plt.subplots(figsize=(12.0, max(6.8, len(top_dp) * 0.62)), facecolor="#0f172a")
     ax.set_facecolor("#162033")
 
     y_pos = np.arange(len(top_dp))
     ax.axvline(avg_r, color="#64748b", linestyle="--", linewidth=1.2, label=f"全體平均排名 (#{avg_r:.1f})")
 
+    # Compute x span to detect close labels between copy_0 and copy_1
+    all_pts = [
+        r[k]["avg_rank"]
+        for r in top_dp
+        for k in ("copy_0", "copy_1", "copy_2")
+        if r[k]["teams"] > 0 and r[k]["avg_rank"] is not None
+    ]
+    x_span = max(10.0, (max(all_pts) - min(all_pts)) if all_pts else 30.0)
+
     for idx, r in enumerate(top_dp):
         pts = []
+        r0 = r["copy_0"]["avg_rank"] if r["copy_0"]["teams"] > 0 else None
+        r1 = r["copy_1"]["avg_rank"] if r["copy_1"]["teams"] > 0 else None
+        close_01 = (r0 is not None and r1 is not None and abs(r0 - r1) < x_span * 0.11)
+
         for c_key, color, marker, sz, dy_off, va_align in [
-            ("copy_0", "#94a3b8", "o", 70, 0.24, "bottom"),
-            ("copy_1", "#38bdf8", "s", 95, 0.24, "bottom"),
-            ("copy_2", "#f43f5e", "D", 110, -0.26, "top"),
+            ("copy_0", "#94a3b8", "o", 72, 0.25 if not close_01 else -0.27, "bottom" if not close_01 else "top"),
+            ("copy_1", "#38bdf8", "s", 95, 0.25, "bottom"),
+            ("copy_2", "#f43f5e", "D", 112, -0.27, "top"),
         ]:
             st = r[c_key]
             if st["teams"] > 0 and st["avg_rank"] is not None:
@@ -188,7 +209,7 @@ def generate_share_cards(
                     color=color,
                     ha="center",
                     va=va_align,
-                    fontsize=8.0,
+                    fontsize=8.2,
                     fontweight="bold" if c_key == "copy_2" else "normal",
                 )
         if len(pts) >= 2:
@@ -196,27 +217,34 @@ def generate_share_cards(
 
         rgba = _load_icon_rgba(icon_paths_by_name.get(r["occupation"], ""), size=26)
         if rgba is not None:
-            ab = AnnotationBbox(OffsetImage(rgba, zoom=0.85), (1.0, idx), xycoords=("axes fraction", "data"), xybox=(-18, 0), boxcoords="offset points", frameon=False, clip_on=False)
-            # Place icon on the left side cleanly using data transform (axes fraction 0)
             ab_l = AnnotationBbox(OffsetImage(rgba, zoom=0.85), (0.0, idx), xycoords=("axes fraction", "data"), xybox=(-18, 0), boxcoords="offset points", frameon=False, clip_on=False)
             ax.add_artist(ab_l)
 
-    # Legend proxies
-    ax.scatter([], [], color="#94a3b8", marker="o", s=70, label="帶 0 隻（不帶）")
+    ax.scatter([], [], color="#94a3b8", marker="o", s=72, label="帶 0 隻（不帶）")
     ax.scatter([], [], color="#38bdf8", marker="s", s=95, label="帶 1 隻（單帶）")
-    ax.scatter([], [], color="#f43f5e", marker="D", s=110, label="帶 2 隻（滿編雙開）")
+    ax.scatter([], [], color="#f43f5e", marker="D", s=112, label="帶 2 隻（滿編雙開）")
 
     ax.set_yticks(y_pos)
     ax.set_yticklabels([r["occupation"] for r in top_dp], color="#f8fafc", fontsize=11, fontweight="bold")
     ax.tick_params(axis="y", pad=34)
     ax.tick_params(axis="x", colors="#cbd5e1")
-    ax.invert_xaxis()  # Smaller rank (stronger) on the RIGHT so "further right = stronger"!
+    ax.set_ylim(-0.75, len(top_dp) - 0.25)
+    ax.invert_xaxis()
     ax.set_xlabel("平均排名（越靠右側代表排名越高 →）", color="#e2e8f0", fontsize=11, fontweight="bold")
     ax.grid(axis="x", color="#334155", linestyle=":", alpha=0.6)
     for spine in ax.spines.values():
         spine.set_color("#334155")
-    ax.legend(loc="lower left", facecolor="#0f172a", edgecolor="#475569", labelcolor="#f8fafc", fontsize=9.5)
-    ax.set_title(f"{title}｜0 隻 vs 1 隻 vs 2 隻（雙開）平均排名影響\n{subtitle}", color="#ffffff", fontsize=13.5, fontweight="bold", pad=14)
+    # Place legend cleanly above the plot so it NEVER overlaps bottom-left rows!
+    ax.legend(
+        loc="upper center",
+        bbox_to_anchor=(0.5, 1.06),
+        ncol=4,
+        facecolor="#0f172a",
+        edgecolor="#475569",
+        labelcolor="#f8fafc",
+        fontsize=9.5,
+    )
+    ax.set_title(f"{title}｜0 隻 vs 1 隻 vs 2 隻（雙開）平均排名影響\n{subtitle}", color="#ffffff", fontsize=13.5, fontweight="bold", pad=34)
     fig.tight_layout()
     p2 = out_dir / "02_copy_count_impact.png"
     fig.savefig(str(p2), dpi=180, facecolor=fig.get_facecolor())
