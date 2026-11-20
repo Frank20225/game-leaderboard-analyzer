@@ -118,6 +118,15 @@
         "templates/occ_bf034f0601_03.png",
         "templates/occ_bf034f0601_04.png"
       ]
+    },
+    "獵人": {
+      "templates": [
+        "templates/occ_19b6312db5_00.png",
+        "templates/occ_19b6312db5_01.png",
+        "templates/occ_19b6312db5_02.png",
+        "templates/occ_19b6312db5_03.png",
+        "templates/occ_19b6312db5_04.png"
+      ]
     }
   }
 }
