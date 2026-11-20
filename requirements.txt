@@ -1,0 +1,24 @@
+# Video & Image Processing
+opencv-python>=4.9.0
+numpy>=1.26.0,<2.0.0
+Pillow>=10.3.0
+
+# Multilingual OCR (Traditional Chinese, English, Thai)
+easyocr>=1.7.1
+
+# Icon Clustering & Analytics
+scikit-learn>=1.4.2
+scipy>=1.13.0
+pandas>=2.2.2
+
+# Excel & Shareable Charts
+openpyxl>=3.1.2
+matplotlib>=3.8.4
+
+# Local Web UI
+fastapi>=0.111.0
+uvicorn[standard]>=0.30.0
+python-multipart>=0.0.9
+
+# Testing
+pytest>=8.2.0
