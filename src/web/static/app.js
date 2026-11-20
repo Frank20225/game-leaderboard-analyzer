@@ -22,13 +22,52 @@ async function api(url, opts = {}) {
   return data;
 }
 
+function fmtSec(sec) {
+  if (sec === null || sec === undefined || isNaN(sec)) return "計算中...";
+  const s = Math.max(0, Math.round(sec));
+  if (s < 60) return `${s} 秒`;
+  const m = Math.floor(s / 60);
+  const rem = s % 60;
+  return `${m} 分 ${rem} 秒`;
+}
+
+function showProgress(title, percent, detail, elapsedSec = null, etaSec = null) {
+  $("progressPanel").style.display = "block";
+  $("progressTitle").textContent = "⏳ " + title;
+  const p = Math.max(0, Math.min(100, Number(percent || 0)));
+  $("progressFill").style.width = p.toFixed(1) + "%";
+  const timeTxt =
+    elapsedSec !== null
+      ? ` ｜ 已耗時 ${fmtSec(elapsedSec)}` + (etaSec !== null ? ` ｜ 預估剩餘 ${fmtSec(etaSec)}` : "")
+      : "";
+  $("progressStats").textContent = `${p.toFixed(1)}%${timeTxt}`;
+  $("progressDetail").textContent = detail || "";
+}
+
+function hideProgress() {
+  $("progressPanel").style.display = "none";
+}
+
 async function pollJob(jobId, label) {
-  showNotice(`⏳ 正在執行 ${label}，請稍候...`, "warn");
-  while (true) {
-    await new Promise((r) => setTimeout(r, 1200));
-    const job = await api(`/api/jobs/${jobId}`);
-    if (job.status === "completed") return job.result;
-    if (job.status === "failed") throw new Error(job.error || "背景任務失敗");
+  showProgress(label, 1, "任務已啟動，準備執行中...");
+  $("globalNotice").style.display = "none";
+  try {
+    while (true) {
+      await new Promise((r) => setTimeout(r, 600));
+      const job = await api(`/api/jobs/${jobId}`);
+      showProgress(label, job.percent ?? 0, job.message || "", job.elapsed_sec ?? null, job.eta_sec ?? null);
+      if (job.status === "completed") {
+        setTimeout(hideProgress, 900);
+        return job.result;
+      }
+      if (job.status === "failed") {
+        hideProgress();
+        throw new Error(job.error || "背景任務失敗");
+      }
+    }
+  } catch (err) {
+    hideProgress();
+    throw err;
   }
 }
 

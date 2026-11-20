@@ -160,3 +160,43 @@ th { background: #0f172a; color: #cbd5e1; position: sticky; top: 0; }
 .roi-field input { width: 100%; }
 
 textarea.summary-box { width: 100%; min-height: 220px; font-family: Consolas, monospace; font-size: 0.86rem; }
+
+.progress-panel {
+  background: var(--panel);
+  border: 1px solid var(--accent-dark);
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 20px rgba(2, 132, 199, 0.14);
+}
+.progress-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.progress-title { font-weight: 700; color: var(--accent); font-size: 0.96rem; }
+.progress-stats { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--text); font-size: 0.92rem; }
+.progress-track {
+  width: 100%;
+  height: 14px;
+  background: #0b1120;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #0284c7, #38bdf8, #4ade80);
+  background-size: 200% 100%;
+  animation: progressShimmer 1.8s linear infinite;
+  transition: width 0.35s ease;
+}
+.progress-detail { margin-top: 7px; font-size: 0.86rem; }
+@keyframes progressShimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}

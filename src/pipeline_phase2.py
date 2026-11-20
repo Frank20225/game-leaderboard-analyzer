@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import sys
+from collections import defaultdict
+from collections.abc import Callable
 from pathlib import Path
 
 import cv2
@@ -19,6 +21,7 @@ from src.ocr.deduplicator import (
     TeamRecord,
     compute_icon_strip_signature,
     fuse_observations_and_audit,
+    infer_missing_ranks_in_frame,
 )
 from src.ocr.text_ocr import MultilingualOcrEngine, preprocess_for_digits
 from src.pipeline_phase1 import run_phase1
@@ -109,8 +112,9 @@ def render_ocr_preprocessing_demo(sample_rank_img: np.ndarray, output_path: Path
 def run_phase2(
     run_dir: str | Path,
     ocr_engine: MultilingualOcrEngine | None = None,
+    progress_cb: Callable[[float, str], None] | None = None,
 ) -> tuple[list[TeamRecord], list[RecognitionIssue], AuditSummary]:
-    """Run Phase 2 OCR extraction & cross-frame deduplication on an existing Phase 1 run_dir."""
+    """Run Phase 2 OCR extraction & cross-frame deduplication with live progress & fast two-pass name OCR."""
     run_path = Path(run_dir)
     phase1_dir = run_path / "phase1_frames"
     summary_path = phase1_dir / "phase1_summary.json"
@@ -126,26 +130,36 @@ def run_phase2(
     phase2_dir.mkdir(parents=True, exist_ok=True)
     crops_dir.mkdir(parents=True, exist_ok=True)
 
+    if progress_cb:
+        progress_cb(3.0, "初始化中/英/泰 OCR 模型（首次需下載並載入記憶體）...")
     engine = ocr_engine or MultilingualOcrEngine(gpu=False)
+    # Trigger lazy load of primary reader so progress reflects model load cleanly
+    _ = engine.reader_cjk
+
     all_obs: list[RowObservation] = []
     demo_saved = False
+    total_kf = max(1, len(keyframes))
 
-    for kf in keyframes:
+    # Pass 1 (Fast): Read Rank + Score + Icon Signature across keyframes & infer within-frame ranks
+    for kf_pos, kf in enumerate(keyframes):
+        if progress_cb:
+            pct = 8.0 + (kf_pos / total_kf) * 44.0
+            progress_cb(pct, f"[1/2 掃描排名與積分] 影格 {kf_pos + 1} / {total_kf} (KF{kf['keyframe_id']})")
         frame = cv2.imread(kf["image_path"])
         if frame is None:
             continue
         rows = slice_scrollable_rows(frame, layout)
+        frame_obs: list[RowObservation] = []
         for row in rows:
             rank_val, rank_conf, rank_src = engine.read_rank(row.rank_img)
             score_val, score_conf, _ = engine.read_score(row.score_img)
-            name_res = engine.read_team_name(row.name_img)
             sig = compute_icon_strip_signature(row.icon_imgs)
 
             if not demo_saved and rank_val is not None and rank_val >= 4:
                 render_ocr_preprocessing_demo(row.rank_img, phase2_dir / "debug_digit_preprocess.png")
                 demo_saved = True
 
-            all_obs.append(
+            frame_obs.append(
                 RowObservation(
                     keyframe_id=int(kf["keyframe_id"]),
                     frame_idx=int(kf["frame_idx"]),
@@ -158,9 +172,9 @@ def run_phase2(
                     rank_conf=rank_conf,
                     rank_source=rank_src,
                     rank_inferred=False,
-                    team_name=name_res.text,
-                    name_conf=name_res.confidence,
-                    name_source=name_res.source,
+                    team_name="",
+                    name_conf=0.0,
+                    name_source="pending",
                     score=score_val,
                     score_conf=score_conf,
                     icon_signature=sig,
@@ -169,6 +183,47 @@ def run_phase2(
                     icon_imgs=row.icon_imgs,
                 )
             )
+        infer_missing_ranks_in_frame(frame_obs)
+        all_obs.extend(frame_obs)
+
+    # Pass 2 (Targeted Multilingual Team Name OCR):
+    # Only run CJK/EN + Thai OCR on the top 1-2 sharpest observations per unique rank
+    # (dramatically speeds up 200-team videos while keeping consensus quality high!).
+    by_rank_pre: dict[int, list[RowObservation]] = defaultdict(list)
+    for ob in all_obs:
+        if ob.rank is not None:
+            by_rank_pre[ob.rank].append(ob)
+
+    sorted_ranks = sorted(by_rank_pre.keys())
+    total_ranks = max(1, len(sorted_ranks))
+    for r_pos, rank in enumerate(sorted_ranks):
+        if progress_cb:
+            pct = 54.0 + (r_pos / total_ranks) * 38.0
+            progress_cb(pct, f"[2/2 多語系辨識戰隊名稱] 第 #{rank} 名（{r_pos + 1} / {total_ranks} 隊）")
+        obs_for_rank = sorted(
+            by_rank_pre[rank],
+            key=lambda o: (
+                1 if o.keyframe_reason == "stable_segment" else 0,
+                o.composite_frames_used,
+                o.keyframe_sharpness,
+            ),
+            reverse=True,
+        )
+        # Run OCR on the sharpest frame first; only run a 2nd frame if confidence < 0.85
+        best_ob = obs_for_rank[0]
+        res1 = engine.read_team_name(best_ob.name_img)
+        best_ob.team_name = res1.text
+        best_ob.name_conf = res1.confidence
+        best_ob.name_source = res1.source
+        if res1.confidence < 0.85 and len(obs_for_rank) >= 2:
+            second_ob = obs_for_rank[1]
+            res2 = engine.read_team_name(second_ob.name_img)
+            second_ob.team_name = res2.text
+            second_ob.name_conf = res2.confidence
+            second_ob.name_source = res2.source
+
+    if progress_cb:
+        progress_cb(94.0, "跨影格融合去重、稽核完整性與輸出對照表...")
 
     teams, issues, audit = fuse_observations_and_audit(all_obs, crops_dir=crops_dir)
 
@@ -182,6 +237,8 @@ def run_phase2(
         json.dumps(audit.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8"
     )
     render_ocr_debug_sheet(teams, phase2_dir / "debug_ocr_grid.png")
+    if progress_cb:
+        progress_cb(100.0, f"完成！已擷取 {len(teams)} 隊")
     return teams, issues, audit
 
 

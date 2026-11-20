@@ -7,6 +7,7 @@ Does NOT rely on naive fixed-interval screenshots.
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -209,6 +210,7 @@ def extract_representative_keyframes(
     stable_mad_threshold: float = 1.8,
     min_visual_diff_mad: float = 3.5,
     scroll_step_row_fraction: float = 3.0,
+    progress_cb: Callable[[float, str], None] | None = None,
 ) -> tuple[list[KeyframeInfo], list[TimelineSample], int, Path]:
     """Analyze scroll motion and extract crisp, non-redundant keyframes.
 
@@ -241,11 +243,16 @@ def extract_representative_keyframes(
 
     # Pass 1: Sequential scan (much faster and more accurate than random seeking on H.264 MP4)
     frame_idx = 0
+    total_frames = max(1, meta.frame_count)
+    report_every = max(15, total_frames // 25)
     try:
         while True:
             ok, frame = cap.read()
             if not ok or frame is None:
                 break
+            if progress_cb and (frame_idx % report_every == 0):
+                pct = 15.0 + (frame_idx / total_frames) * 55.0
+                progress_cb(pct, f"掃描影片捲動與清晰度：第 {frame_idx} / {total_frames} 幀")
             if frame_idx % stride == 0 or frame_idx == meta.frame_count - 1:
                 crop = sb.crop(frame)
                 gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
@@ -318,8 +325,12 @@ def extract_representative_keyframes(
         # Pass 3: Materialize clean frames and filter out visually identical consecutive frames
         keyframes: list[KeyframeInfo] = []
         prev_saved_crop: np.ndarray | None = None
+        total_cand = max(1, len(selected_candidates))
 
-        for seg_indices, reason, ref_sample in selected_candidates:
+        for c_idx, (seg_indices, reason, ref_sample) in enumerate(selected_candidates):
+            if progress_cb:
+                pct = 72.0 + (c_idx / total_cand) * 20.0
+                progress_cb(pct, f"合成清晰無游標代表影格：{c_idx + 1} / {total_cand}")
             clean_frame, rep_idx, sharp, used_count = _build_clean_frame_from_segment(
                 cap, seg_indices, sb.crop
             )

@@ -19,6 +19,16 @@
 
   <main class="wrap">
     <div id="globalNotice" class="status-banner" style="display:none"></div>
+    <div id="progressPanel" class="progress-panel" style="display:none">
+      <div class="progress-head">
+        <span id="progressTitle" class="progress-title">正在處理...</span>
+        <span id="progressStats" class="progress-stats">0%</span>
+      </div>
+      <div class="progress-track">
+        <div id="progressFill" class="progress-fill" style="width:0%"></div>
+      </div>
+      <div id="progressDetail" class="progress-detail muted"></div>
+    </div>
 
     <nav class="steps">
       <button class="step-btn active" data-step="1">1. 選擇影片 &amp; ROI</button>

@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import os
 import threading
+import time
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -58,19 +59,52 @@ def _resolve_run_dir(run_id: str) -> Path:
 
 
 def _start_bg_job(job_type: str, target_fn) -> str:
+    """Start a background worker thread with live percent, message, elapsed & ETA tracking."""
     job_id = uuid.uuid4().hex[:10]
+    started_at = time.monotonic()
     with _JOBS_LOCK:
-        _JOBS[job_id] = {"job_id": job_id, "type": job_type, "status": "running", "result": None, "error": None}
+        _JOBS[job_id] = {
+            "job_id": job_id,
+            "type": job_type,
+            "status": "running",
+            "percent": 0.0,
+            "message": "正在準備任務...",
+            "elapsed_sec": 0.0,
+            "eta_sec": None,
+            "result": None,
+            "error": None,
+        }
+
+    def report_progress(percent: float, message: str) -> None:
+        now = time.monotonic()
+        elapsed = max(0.0, now - started_at)
+        pct = max(0.0, min(100.0, float(percent)))
+        eta = round(elapsed * (100.0 - pct) / pct, 1) if pct >= 5.0 and pct < 100.0 else None
+        with _JOBS_LOCK:
+            job = _JOBS.get(job_id)
+            if job and job["status"] == "running":
+                job["percent"] = round(pct, 1)
+                job["message"] = message
+                job["elapsed_sec"] = round(elapsed, 1)
+                job["eta_sec"] = eta
 
     def _runner():
         try:
-            res = target_fn()
+            res = target_fn(report_progress)
+            elapsed = round(max(0.0, time.monotonic() - started_at), 1)
             with _JOBS_LOCK:
                 _JOBS[job_id]["status"] = "completed"
+                _JOBS[job_id]["percent"] = 100.0
+                _JOBS[job_id]["message"] = "處理完成！"
+                _JOBS[job_id]["elapsed_sec"] = elapsed
+                _JOBS[job_id]["eta_sec"] = 0.0
                 _JOBS[job_id]["result"] = res
         except Exception as exc:
+            elapsed = round(max(0.0, time.monotonic() - started_at), 1)
             with _JOBS_LOCK:
                 _JOBS[job_id]["status"] = "failed"
+                _JOBS[job_id]["elapsed_sec"] = elapsed
+                _JOBS[job_id]["eta_sec"] = None
                 _JOBS[job_id]["error"] = str(exc)
 
     threading.Thread(target=_runner, daemon=True).start()
@@ -243,8 +277,8 @@ def start_phase1(req: Phase1Request) -> dict[str, Any]:
 
     run_dir = OUTPUTS_DIR / req.run_name if req.run_name else None
 
-    def _work():
-        res = run_phase1(video_p, run_dir=run_dir)
+    def _work(report_progress):
+        res = run_phase1(video_p, run_dir=run_dir, progress_cb=report_progress)
         out_run_id = Path(res.summary_json_path).parent.parent.name
         return {"run_id": out_run_id, "phase1": res.to_dict()}
 
@@ -289,8 +323,8 @@ def update_layout(run_id: str, req: LayoutUpdateRequest) -> dict[str, Any]:
 def start_phase2(run_id: str) -> dict[str, Any]:
     run_path = _resolve_run_dir(run_id)
 
-    def _work():
-        teams, issues, audit = run_phase2(run_path)
+    def _work(report_progress):
+        teams, issues, audit = run_phase2(run_path, progress_cb=report_progress)
         return {
             "run_id": run_id,
             "audit": audit.to_dict(),

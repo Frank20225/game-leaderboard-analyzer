@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sys
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 
@@ -19,9 +20,12 @@ def run_phase1(
     video_path: str | Path,
     run_dir: str | Path | None = None,
     layout_override: LayoutConfig | None = None,
+    progress_cb: Callable[[float, str], None] | None = None,
 ) -> Phase1Result:
     """Execute Phase 1 end-to-end and write all verifiable debug artifacts."""
     ensure_base_dirs()
+    if progress_cb:
+        progress_cb(3.0, "讀取影片中繼資料與抽樣影格...")
     meta = load_video_metadata(video_path)
 
     if run_dir is None:
@@ -37,6 +41,8 @@ def run_phase1(
     sampled_pairs = sample_frames_uniform(meta.path, num_samples=16)
     sampled_frames = [f for _, f in sampled_pairs]
 
+    if progress_cb:
+        progress_cb(12.0, "自動偵測排行榜外框、8 職業位置與個人列排除...")
     layout = layout_override if layout_override is not None else detect_leaderboard_layout(sampled_frames)
     layout.save(phase1_dir / "layout.json")
 
@@ -48,7 +54,11 @@ def run_phase1(
         video_path=meta.path,
         layout=layout,
         output_dir=phase1_dir,
+        progress_cb=progress_cb,
     )
+
+    if progress_cb:
+        progress_cb(96.0, "儲存 Phase 1 分析摘要與時間軸圖...")
 
     summary_json_path = phase1_dir / "phase1_summary.json"
     result = Phase1Result(
