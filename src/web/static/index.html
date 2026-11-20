@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Game Leaderboard Analyzer — 遊戲排行榜影片分析工具</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>🏆 Game Leaderboard Analyzer</h1>
+    <div class="run-picker">
+      <span class="muted">目前分析紀錄：</span>
+      <select id="runSelect"></select>
+      <button class="btn secondary" id="btnRefreshRuns">重新整理</button>
+      <button class="btn secondary" id="btnOpenFolder" disabled>開啟輸出資料夾</button>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div id="globalNotice" class="status-banner" style="display:none"></div>
+
+    <nav class="steps">
+      <button class="step-btn active" data-step="1">1. 選擇影片 &amp; ROI</button>
+      <button class="step-btn" data-step="2">2. OCR 擷取與稽核</button>
+      <button class="step-btn" data-step="3">3. 職業圖示確認</button>
+      <button class="step-btn" data-step="4">4. 人工校對修正</button>
+      <button class="step-btn" data-step="5">5. 匯出與分享包</button>
+      <button class="step-btn learn-tab" data-step="learn">🔍 幕後過程 / 學習檢視</button>
+    </nav>
+
+    <!-- STEP 1 -->
+    <section id="step-1" class="section active">
+      <div class="card">
+        <h2>Step 1：選擇 OBS 錄影檔並執行 Phase 1 影片分析</h2>
+        <p class="muted">原始影片僅以唯讀方式讀取，絕不會被移動或修改。所有結果會保存在專案的 <code>outputs/</code> 資料夾。</p>
+        <div class="row">
+          <input type="text" id="videoPathInput" class="wide" placeholder="請點「選擇影片」或貼上本機 MP4 路徑（例如 C:\Users\...\2026-11-21.mp4）">
+          <button class="btn secondary" id="btnPickVideo">📂 選擇本機影片</button>
+          <button class="btn" id="btnRunPhase1">▶ 開始 Phase 1 影片分析</button>
+        </div>
+      </div>
+
+      <div class="card" id="phase1ResultCard" style="display:none">
+        <h2>Phase 1 結果：自動 ROI 定位與代表影格</h2>
+        <div id="phase1Meta" class="status-banner ok"></div>
+        <div class="grid-2">
+          <div>
+            <h3>偵測到的排行榜 ROI（紅叉為已排除的固定個人列）</h3>
+            <img id="imgRoiOverlay" class="preview" alt="ROI Overlay">
+          </div>
+          <div>
+            <h3>捲動運動量、累積位移與銳利度時間軸</h3>
+            <img id="imgTimeline" class="preview" alt="Scroll Timeline">
+          </div>
+        </div>
+        <details style="margin-top:14px">
+          <summary style="cursor:pointer;color:var(--accent);font-weight:600">⚙️ 若影片有縮放或偏移，點此微調 ROI 比例座標</summary>
+          <div class="roi-inputs" id="roiEditor"></div>
+          <button class="btn secondary" id="btnSaveLayout">儲存 ROI 微調並重繪預覽</button>
+        </details>
+      </div>
+    </section>
+
+    <!-- STEP 2 -->
+    <section id="step-2" class="section">
+      <div class="card">
+        <h2>Step 2：執行多語系 OCR、第 1～3 名徽章辨識與跨影格去重</h2>
+        <p class="muted">使用中/英/泰雙模型路由與跨影格共識投票，自動檢查缺漏排名與積分單調遞減規則。</p>
+        <button class="btn" id="btnRunPhase2">▶ 執行 Phase 2 OCR 與去重</button>
+      </div>
+      <div class="card" id="phase2ResultCard" style="display:none">
+        <h2>完整性稽核報告</h2>
+        <div id="phase2AuditBox" class="status-banner"></div>
+        <h3>原圖裁切 vs OCR 辨識對照表（前 35 隊預覽）</h3>
+        <img id="imgOcrGrid" class="preview" alt="OCR Grid">
+      </div>
+    </section>
+
+    <!-- STEP 3 -->
+    <section id="step-3" class="section">
+      <div class="card">
+        <h2>Step 3：職業圖示自動分群、命名與儲存至資料庫</h2>
+        <p class="muted">系統會先自動比對既有職業圖示庫，再將未知圖示分群。若兩個群組其實是同一職業，只要填入<strong>相同的職業名稱</strong>就會自動合併！</p>
+        <div class="row">
+          <button class="btn" id="btnRunPhase3">▶ 執行 Phase 3 圖示分群</button>
+          <button class="btn success" id="btnConfirmClusters" style="display:none">💾 儲存職業名稱並寫入可複用資料庫</button>
+        </div>
+      </div>
+      <div id="clusterSummary" class="status-banner" style="display:none"></div>
+      <div id="clustersContainer"></div>
+    </section>
+
+    <!-- STEP 4 -->
+    <section id="step-4" class="section">
+      <div class="card">
+        <h2>Step 4：辨識異常與人工校對修正</h2>
+        <div class="row" style="justify-content:space-between;margin-bottom:12px">
+          <div class="row">
+            <label><input type="checkbox" id="chkOnlyFlagged"> 僅顯示標記異常/低信心列</label>
+            <span class="muted" id="editCountInfo"></span>
+          </div>
+          <button class="btn success" id="btnSaveEdits">💾 儲存所有人工修正</button>
+        </div>
+        <div class="table-scroll">
+          <table id="editTeamsTable"></table>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 5 -->
+    <section id="step-5" class="section">
+      <div class="card">
+        <h2>Step 5：產出 7 頁 Excel 報告與全配分享包</h2>
+        <div class="row" style="margin-bottom:12px">
+          <input type="text" id="reportTitleInput" class="wide" value="排位賽職業環境分析報告" placeholder="輸入分享報告標題（例如：S5 排位賽 200 隊環境分析）">
+          <button class="btn" id="btnRunExport">🚀 產出 Excel ＋ 分享包</button>
+        </div>
+        <div id="exportActions" style="display:none">
+          <div class="row" style="margin-bottom:14px">
+            <a class="btn" id="dlExcelFull" target="_blank">📊 下載完整 7 頁 Excel</a>
+            <a class="btn secondary" id="dlExcelPublic" target="_blank">📄 下載公開分享版 Excel（無錯誤頁）</a>
+            <a class="btn secondary" id="dlHtmlReport" target="_blank">🌐 開啟單檔互動報告 (report.html)</a>
+            <button class="btn success" id="btnPublishPages">☁️ 發佈至 docs/（GitHub Pages）</button>
+          </div>
+          <div id="pagesResultBox" class="status-banner ok" style="display:none"></div>
+
+          <h3>📋 Discord / LINE / 論壇文字戰報（一鍵複製）</h3>
+          <textarea id="summaryTextarea" class="summary-box" readonly></textarea>
+          <div class="row" style="margin-top:8px">
+            <button class="btn secondary" id="btnCopySummary">📋 複製戰報文字</button>
+          </div>
+
+          <h3>🖼️ 社群分享統計圖卡（可直接右鍵另存或從輸出資料夾拖進 LINE / Discord）</h3>
+          <div class="grid-2" id="shareCardsPreview"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- LEARNING / BEHIND THE SCENES TAB -->
+    <section id="step-learn" class="section">
+      <div class="card">
+        <h2>🔍 幕後過程 / 學習檢視模式（對應 learning/*.md 技術筆記）</h2>
+        <p class="muted">這裡集中展示目前分析紀錄在每個演算法階段的真實中間產物，方便對照 <code>learning/01~04_*.md</code> 理解底層電腦視覺與資料科學原理。</p>
+        <div id="learnEmptyHint" class="status-banner warn">請先於上方選擇一個已執行分析的紀錄（例如 <code>stage1_verify</code>）。</div>
+        <div id="learnContent" style="display:none">
+          <div class="card" style="background:var(--panel2)">
+            <h3>Stage 1：HSV 色彩空間 ＋ 時間變異自動定位 ROI ＋ 相位相關捲動曲線</h3>
+            <div id="learnStage1Notes" class="muted" style="margin-bottom:10px"></div>
+            <div class="grid-2">
+              <img id="learnRoiImg" class="preview" alt="Stage 1 ROI">
+              <img id="learnTimelineImg" class="preview" alt="Stage 1 Timeline">
+            </div>
+          </div>
+          <div class="card" style="background:var(--panel2)">
+            <h3>Stage 2：數字前處理（放大＋歸一化＋補白邊）與 30 隊 OCR 並排檢查表</h3>
+            <div class="grid-2">
+              <div>
+                <p class="muted">原始裁切 vs 放大歸一化補白邊（解決小字 OCR 漏抓）</p>
+                <img id="learnPreprocImg" class="preview" alt="Digit Preprocess">
+              </div>
+              <div>
+                <p class="muted">跨影格去重後每隊代表原圖 vs 中/英/泰 OCR 輸出</p>
+                <img id="learnOcrGridImg" class="preview" alt="OCR Grid">
+              </div>
+            </div>
+          </div>
+          <div class="card" style="background:var(--panel2)">
+            <h3>Stage 3：圓形遮罩特徵分群總覽表 ＆ 240×240 餘弦/NCC 相似度矩陣熱力圖</h3>
+            <p class="muted">對角線上的亮黃色方塊越銳利，代表同職業內部相似度極高（~0.95+）且不同職業被徹底分開。</p>
+            <div class="grid-2">
+              <img id="learnClustersImg" class="preview" alt="Clusters Sheet">
+              <img id="learnHeatmapImg" class="preview" alt="Similarity Matrix">
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
