@@ -209,30 +209,49 @@ def confirm_clusters_and_save_db(
     save_to_db: bool = True,
     db_dir: str | Path = ICON_DB_DIR,
 ) -> dict:
-    """Persist human-confirmed cluster labels back to run_dir AND reusable IconDatabase."""
+    """Persist human-confirmed cluster labels back to run_dir AND reusable IconDatabase.
+
+    Handles renaming/merging cleanly:
+    - If a DB-matched cluster (`DB_<old>`) is renamed to `<new>`, removes `<old>` from
+      the persistent DB and merges its templates into `<new>` (no zombie duplicates!).
+    - Merges clusters that were given the same confirmed name into a single cluster card.
+    - Preserves any manual team_name / score edits previously saved in Step 4.
+    """
     run_path = Path(run_dir)
     phase3_dir = run_path / "phase3_icons"
     clusters_path = phase3_dir / "clusters.json"
-    teams_path = run_path / "phase2_extracted" / "teams_raw.json"
+    p3_teams_path = phase3_dir / "teams_with_icons.json"
+    p2_teams_path = run_path / "phase2_extracted" / "teams_raw.json"
 
     p3 = json.loads(clusters_path.read_text(encoding="utf-8"))
-    teams = json.loads(teams_path.read_text(encoding="utf-8"))
+    # Prefer teams_with_icons.json if present so prior Step 4 team_name/score edits are preserved
+    base_teams_path = p3_teams_path if p3_teams_path.is_file() else p2_teams_path
+    teams = json.loads(base_teams_path.read_text(encoding="utf-8"))
     instances = [IconInstance(**i) for i in p3["instances"]]
     clusters = [IconCluster(**c) for c in p3["clusters"]]
 
     updated_teams = apply_labels_to_teams(teams, instances, cluster_name_map, instance_overrides)
 
-    # Update cluster confirmed names
     inst_by_id = {i.instance_id: i for i in instances}
     icon_db = IconDatabase(db_dir=db_dir) if save_to_db else None
 
+    # 1. Update persistent DB (rename/merge old DB keys first so zombie entries are removed)
+    merged_groups: dict[str, list[IconCluster]] = {}
+    empty_clusters: list[IconCluster] = []
+
     for c in clusters:
         if c.cluster_id == "EMPTY":
+            empty_clusters.append(c)
             continue
+
+        old_db_name = c.cluster_id[3:] if c.cluster_id.startswith("DB_") else ""
         new_name = cluster_name_map.get(c.cluster_id, c.confirmed_name or c.suggested_name).strip()
         c.confirmed_name = new_name
         c.needs_review = False
+
         if icon_db is not None and new_name and new_name != EMPTY_LABEL:
+            if old_db_name and old_db_name != new_name:
+                icon_db.rename_occupation(old_db_name, new_name)
             sample_imgs = []
             for iid in c.sample_instance_ids[:5]:
                 inst = inst_by_id.get(iid)
@@ -243,13 +262,56 @@ def confirm_clusters_and_save_db(
             if sample_imgs:
                 icon_db.upsert_occupation(new_name, sample_imgs)
 
-    p3["clusters"] = [c.to_dict() for c in clusters]
+        merged_groups.setdefault(new_name or c.cluster_id, []).append(c)
+
+    # 2. Merge clusters that now share the same confirmed name into unified cluster cards
+    unified_clusters: list[IconCluster] = []
+    for name_key, grp in merged_groups.items():
+        primary = max(grp, key=lambda x: x.count)
+        new_cid = f"DB_{name_key}" if save_to_db and name_key and name_key != EMPTY_LABEL else primary.cluster_id
+        all_ids: list[str] = []
+        sample_ids: list[str] = []
+        for g in grp:
+            for iid in g.all_instance_ids:
+                if iid not in all_ids:
+                    all_ids.append(iid)
+                if iid in inst_by_id:
+                    inst_by_id[iid].cluster_id = new_cid
+                    inst_by_id[iid].assigned_name = name_key
+            for sid in g.sample_instance_ids:
+                if sid not in sample_ids:
+                    sample_ids.append(sid)
+
+        total_n = sum(g.count for g in grp)
+        avg_sim = sum(g.avg_internal_sim * g.count for g in grp) / max(1, total_n)
+        min_sim = min(g.min_internal_sim for g in grp)
+        unified_clusters.append(
+            IconCluster(
+                cluster_id=new_cid,
+                suggested_name=name_key,
+                confirmed_name=name_key,
+                matched_from_db=bool(save_to_db) or any(g.matched_from_db for g in grp),
+                count=len(all_ids),
+                avg_internal_sim=round(avg_sim, 4),
+                min_internal_sim=round(min_sim, 4),
+                representative_norm_path=primary.representative_norm_path,
+                sample_instance_ids=sample_ids[:12],
+                all_instance_ids=all_ids,
+                needs_review=False,
+            )
+        )
+
+    unified_clusters.sort(key=lambda c: (-c.count, c.confirmed_name))
+    unified_clusters.extend(empty_clusters)
+
+    p3["cluster_count"] = sum(1 for c in unified_clusters if c.cluster_id != "EMPTY")
+    p3["clusters"] = [c.to_dict() for c in unified_clusters]
     p3["instances"] = [i.to_dict() for i in instances]
     clusters_path.write_text(json.dumps(p3, ensure_ascii=False, indent=2), encoding="utf-8")
-    (phase3_dir / "teams_with_icons.json").write_text(
+    p3_teams_path.write_text(
         json.dumps(updated_teams, ensure_ascii=False, indent=2), encoding="utf-8"
     )
-    render_clusters_contact_sheet(clusters, inst_by_id, phase3_dir / "debug_clusters_sheet.png")
+    render_clusters_contact_sheet(unified_clusters, inst_by_id, phase3_dir / "debug_clusters_sheet.png")
     return {"clusters": p3["clusters"], "teams": updated_teams}
 
 

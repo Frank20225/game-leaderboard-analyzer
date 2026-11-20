@@ -52,7 +52,8 @@
         "templates/occ_8a1416ba3f_01.png",
         "templates/occ_8a1416ba3f_02.png",
         "templates/occ_8a1416ba3f_03.png",
-        "templates/occ_8a1416ba3f_04.png"
+        "templates/occ_8a1416ba3f_04.png",
+        "templates/occ_25f80d1a4e_00.png"
       ]
     },
     "德魯伊": {
@@ -103,13 +104,19 @@
     "鐵匠": {
       "templates": [
         "templates/occ_70a9498d04_00.png",
-        "templates/occ_70a9498d04_01.png"
+        "templates/occ_70a9498d04_01.png",
+        "templates/occ_70a9498d04_02.png",
+        "templates/occ_70a9498d04_03.png",
+        "templates/occ_70a9498d04_04.png"
       ]
     },
     "十字": {
       "templates": [
         "templates/occ_bf034f0601_00.png",
-        "templates/occ_bf034f0601_01.png"
+        "templates/occ_bf034f0601_01.png",
+        "templates/occ_bf034f0601_02.png",
+        "templates/occ_bf034f0601_03.png",
+        "templates/occ_bf034f0601_04.png"
       ]
     }
   }

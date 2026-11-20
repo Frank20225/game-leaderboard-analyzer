@@ -52,3 +52,15 @@ def test_phase3_clustering_and_db_reuse(tmp_path: Path) -> None:
     # Verify Chinese occupation names were actually restored from DB
     matched_names = {c["confirmed_name"] for c in res2["clusters"] if c["matched_from_db"]}
     assert "法師" in matched_names and "補師" in matched_names
+
+    # Regression test: renaming/merging a DB cluster removes old zombie name from DB & merges cards
+    merge_map = {
+        c["cluster_id"]: ("騎士" if c["confirmed_name"] == "十字" else c["confirmed_name"])
+        for c in res2["clusters"]
+        if c["cluster_id"] != "EMPTY"
+    }
+    merged = confirm_clusters_and_save_db(test_run_dir, merge_map, save_to_db=True, db_dir=test_db_dir)
+    merged_names = [c["confirmed_name"] for c in merged["clusters"] if c["cluster_id"] != "EMPTY"]
+    assert "十字" not in merged_names
+    assert merged_names.count("騎士") == 1
+    assert all("十字" not in t["occupations"] for t in merged["teams"])
