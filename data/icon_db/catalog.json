@@ -1,4 +1,116 @@
 {
   "version": 1,
-  "occupations": {}
+  "occupations": {
+    "法師": {
+      "templates": [
+        "templates/occ_a999f0367f_00.png",
+        "templates/occ_a999f0367f_01.png",
+        "templates/occ_a999f0367f_02.png",
+        "templates/occ_a999f0367f_03.png",
+        "templates/occ_a999f0367f_04.png"
+      ]
+    },
+    "補師": {
+      "templates": [
+        "templates/occ_832a623c9f_00.png",
+        "templates/occ_832a623c9f_01.png",
+        "templates/occ_832a623c9f_02.png",
+        "templates/occ_832a623c9f_03.png",
+        "templates/occ_832a623c9f_04.png"
+      ]
+    },
+    "詩人": {
+      "templates": [
+        "templates/occ_a1d3408d22_00.png",
+        "templates/occ_a1d3408d22_01.png",
+        "templates/occ_a1d3408d22_02.png",
+        "templates/occ_a1d3408d22_03.png",
+        "templates/occ_a1d3408d22_04.png"
+      ]
+    },
+    "賢者": {
+      "templates": [
+        "templates/occ_62485fc17d_00.png",
+        "templates/occ_62485fc17d_01.png",
+        "templates/occ_62485fc17d_02.png",
+        "templates/occ_62485fc17d_03.png",
+        "templates/occ_62485fc17d_04.png"
+      ]
+    },
+    "流氓": {
+      "templates": [
+        "templates/occ_8d8472734e_00.png",
+        "templates/occ_8d8472734e_01.png",
+        "templates/occ_8d8472734e_02.png",
+        "templates/occ_8d8472734e_03.png",
+        "templates/occ_8d8472734e_04.png"
+      ]
+    },
+    "騎士": {
+      "templates": [
+        "templates/occ_8a1416ba3f_00.png",
+        "templates/occ_8a1416ba3f_01.png",
+        "templates/occ_8a1416ba3f_02.png",
+        "templates/occ_8a1416ba3f_03.png",
+        "templates/occ_8a1416ba3f_04.png"
+      ]
+    },
+    "德魯伊": {
+      "templates": [
+        "templates/occ_6706f7dcab_00.png",
+        "templates/occ_6706f7dcab_01.png",
+        "templates/occ_6706f7dcab_02.png",
+        "templates/occ_6706f7dcab_03.png",
+        "templates/occ_6706f7dcab_04.png"
+      ]
+    },
+    "煉金": {
+      "templates": [
+        "templates/occ_12c4f3089f_00.png",
+        "templates/occ_12c4f3089f_01.png",
+        "templates/occ_12c4f3089f_02.png",
+        "templates/occ_12c4f3089f_03.png",
+        "templates/occ_12c4f3089f_04.png"
+      ]
+    },
+    "舞孃": {
+      "templates": [
+        "templates/occ_1635507ee3_00.png",
+        "templates/occ_1635507ee3_01.png",
+        "templates/occ_1635507ee3_02.png",
+        "templates/occ_1635507ee3_03.png",
+        "templates/occ_1635507ee3_04.png"
+      ]
+    },
+    "武僧": {
+      "templates": [
+        "templates/occ_6bcf4c69f7_00.png",
+        "templates/occ_6bcf4c69f7_01.png",
+        "templates/occ_6bcf4c69f7_02.png",
+        "templates/occ_6bcf4c69f7_03.png",
+        "templates/occ_6bcf4c69f7_04.png"
+      ]
+    },
+    "刺客": {
+      "templates": [
+        "templates/occ_3b0ab1fba4_00.png",
+        "templates/occ_3b0ab1fba4_01.png",
+        "templates/occ_3b0ab1fba4_02.png",
+        "templates/occ_3b0ab1fba4_03.png",
+        "templates/occ_3b0ab1fba4_04.png"
+      ]
+    },
+    "鐵匠": {
+      "templates": [
+        "templates/occ_70a9498d04_00.png",
+        "templates/occ_70a9498d04_01.png"
+      ]
+    },
+    "十字": {
+      "templates": [
+        "templates/occ_bf034f0601_00.png",
+        "templates/occ_bf034f0601_01.png"
+      ]
+    }
+  }
 }

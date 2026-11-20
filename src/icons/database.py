@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
-import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -14,9 +14,30 @@ from src.config import ICON_DB_DIR, ICON_TEMPLATES_DIR
 from src.icons.features import IconAnalysis, analyze_icon, compute_ncc_similarity
 
 
-def _slugify(name: str) -> str:
-    clean = re.sub(r"[^\w\u4e00-\u9fff\-]+", "_", name.strip())
-    return clean.strip("_") or "occ"
+def _ascii_slug(name: str) -> str:
+    """Return an ASCII-only deterministic filename prefix (safe across all Windows locales)."""
+    digest = hashlib.sha1(name.strip().encode("utf-8")).hexdigest()[:10]
+    return f"occ_{digest}"
+
+
+def _imread_unicode(path: Path) -> np.ndarray | None:
+    """Read an image safely even when the path contains non-ASCII/CJK characters on Windows."""
+    if not path.is_file():
+        return None
+    buf = np.fromfile(str(path), dtype=np.uint8)
+    if buf.size == 0:
+        return None
+    return cv2.imdecode(buf, cv2.IMREAD_COLOR)
+
+
+def _imwrite_unicode(path: Path, img: np.ndarray) -> bool:
+    """Write a PNG image safely regardless of Windows locale encoding."""
+    ok, encoded = cv2.imencode(".png", img)
+    if not ok:
+        return False
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(encoded.tobytes())
+    return True
 
 
 @dataclass
@@ -63,12 +84,11 @@ class IconDatabase:
             analyses: list[IconAnalysis] = []
             for rel_path in entry.get("templates", []):
                 p = self.db_dir / rel_path
-                if p.is_file():
-                    img = cv2.imread(str(p))
-                    if img is not None:
-                        a = analyze_icon(img)
-                        if not a.is_empty:
-                            analyses.append(a)
+                img = _imread_unicode(p)
+                if img is not None:
+                    a = analyze_icon(img)
+                    if not a.is_empty:
+                        analyses.append(a)
             if analyses:
                 self._cache[occ_name] = analyses
 
@@ -93,7 +113,7 @@ class IconDatabase:
         if not clean_name or clean_name == "(空位)":
             return
 
-        slug = _slugify(clean_name)
+        slug = _ascii_slug(clean_name)
         existing_rels: list[str] = list(self.occupations.get(clean_name, {}).get("templates", []))
 
         # Keep existing valid templates
@@ -108,9 +128,9 @@ class IconDatabase:
                 continue
             rel = f"templates/{slug}_{next_idx:02d}.png"
             out_path = self.db_dir / rel
-            cv2.imwrite(str(out_path), a.normalized_bgr)
-            valid_rels.append(rel)
-            next_idx += 1
+            if _imwrite_unicode(out_path, a.normalized_bgr):
+                valid_rels.append(rel)
+                next_idx += 1
 
         self.occupations[clean_name] = {"templates": valid_rels}
         self.save()
