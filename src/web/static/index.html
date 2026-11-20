@@ -26,6 +26,7 @@
       <button class="step-btn" data-step="3">3. 職業圖示確認</button>
       <button class="step-btn" data-step="4">4. 人工校對修正</button>
       <button class="step-btn" data-step="5">5. 匯出與分享包</button>
+      <button class="step-btn" data-step="6">📈 6. 多期趨勢對比</button>
       <button class="step-btn learn-tab" data-step="learn">🔍 幕後過程 / 學習檢視</button>
     </nav>
 
@@ -131,9 +132,36 @@
             <button class="btn secondary" id="btnCopySummary">📋 複製戰報文字</button>
           </div>
 
-          <h3>🖼️ 社群分享統計圖卡（可直接右鍵另存或從輸出資料夾拖進 LINE / Discord）</h3>
+          <h3>🖼️ 戰隊排陣專業統計圖卡（4 張王牌圖表，可直接拖進 LINE / Discord）</h3>
           <div class="grid-2" id="shareCardsPreview"></div>
         </div>
+      </div>
+    </section>
+
+    <!-- STEP 6: MULTI-RUN TRENDS -->
+    <section id="step-6" class="section">
+      <div class="card">
+        <h2>📈 Step 6：多期排名跨期趨勢對比（Meta 演變 ＋ 戰隊爬升 ＋ 換角偵測）</h2>
+        <p class="muted">隨著排位賽進行，勾選 2 個以上已完成 Phase 3 的分析紀錄並依時間先後填入期別標籤（例如 <code>11/16 Day1</code>、<code>11/21 Day5</code>），系統會自動追蹤職業漲跌與強隊中途換角！</p>
+        <div class="row" style="margin-bottom:12px">
+          <input type="text" id="trendTitleInput" class="wide" value="排位賽多期環境與戰隊趨勢對比" placeholder="輸入跨期趨勢報告標題">
+          <button class="btn" id="btnRunTrend">📈 產生多期趨勢分析</button>
+        </div>
+        <div id="trendRunsList" style="margin-bottom:14px"></div>
+      </div>
+
+      <div class="card" id="trendResultCard" style="display:none">
+        <h2>多期趨勢分析結果</h2>
+        <div class="row" style="margin-bottom:12px">
+          <a class="btn" id="dlTrendExcel" target="_blank">📊 下載跨期趨勢 Excel (4頁)</a>
+          <a class="btn secondary" id="dlTrendHtml" target="_blank">🌐 開啟跨期互動網頁 (trend_report.html)</a>
+          <button class="btn secondary" id="btnCopyTrendSummary">📋 複製趨勢戰報</button>
+        </div>
+        <textarea id="trendSummaryBox" class="summary-box" readonly></textarea>
+        <h3>🖼️ 跨期趨勢統計圖卡</h3>
+        <div class="grid-2" id="trendCardsPreview"></div>
+        <h3>🔄 偵測到的戰隊中途換角紀錄</h3>
+        <div class="table-scroll"><table id="trendChangesTable"></table></div>
       </div>
     </section>
 

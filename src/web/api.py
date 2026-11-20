@@ -14,6 +14,7 @@ import json
 import os
 import threading
 import uuid
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -23,14 +24,18 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from src.analytics.trends import compare_multiple_runs
 from src.config import DOCS_DIR, ICON_DB_DIR, OUTPUTS_DIR, ensure_base_dirs
 from src.export.pages_publisher import publish_to_github_pages
+from src.export.trend_export import export_trend_package
 from src.icons.database import IconDatabase
 from src.layout.detector import LayoutConfig, render_roi_debug_overlay
 from src.pipeline_phase1 import run_phase1
 from src.pipeline_phase2 import run_phase2
 from src.pipeline_phase3 import confirm_clusters_and_save_db, run_phase3
 from src.pipeline_phase4_5 import run_phase4_5
+
+TRENDS_DIR = OUTPUTS_DIR / "_trends"
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
@@ -114,6 +119,16 @@ class PublishPagesRequest(BaseModel):
     report_slug: str | None = None
 
 
+class TrendSnapshotInput(BaseModel):
+    run_id: str
+    label: str = ""
+
+
+class TrendCompareRequest(BaseModel):
+    trend_title: str = "排位賽多期環境與戰隊趨勢對比"
+    snapshots: list[TrendSnapshotInput]
+
+
 @app.get("/", response_class=HTMLResponse)
 def index() -> HTMLResponse:
     return HTMLResponse((STATIC_DIR / "index.html").read_text(encoding="utf-8"))
@@ -159,7 +174,7 @@ def list_runs() -> list[dict[str, Any]]:
     ensure_base_dirs()
     runs: list[dict[str, Any]] = []
     for d in sorted(OUTPUTS_DIR.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True):
-        if not d.is_dir():
+        if not d.is_dir() or d.name.startswith("_"):
             continue
         p1_file = d / "phase1_frames" / "phase1_summary.json"
         p2_audit = d / "phase2_extracted" / "audit_report.json"
@@ -386,4 +401,62 @@ def serve_run_file(run_id: str, rel_path: str) -> FileResponse:
     target = (run_path / rel_path).resolve()
     if not str(target).startswith(str(run_path)) or not target.is_file():
         raise HTTPException(status_code=404, detail=f"找不到檔案: {rel_path}")
+    return FileResponse(str(target))
+
+
+def _resolve_trend_dir(trend_id: str) -> Path:
+    if "/" in trend_id or "\\" in trend_id or ".." in trend_id:
+        raise HTTPException(status_code=400, detail="無效的 trend_id")
+    t_path = (TRENDS_DIR / trend_id).resolve()
+    if not str(t_path).startswith(str(TRENDS_DIR.resolve())) or not t_path.is_dir():
+        raise HTTPException(status_code=404, detail=f"找不到趨勢報告: {trend_id}")
+    return t_path
+
+
+@app.get("/api/trends")
+def list_trends() -> list[dict[str, Any]]:
+    TRENDS_DIR.mkdir(parents=True, exist_ok=True)
+    items = []
+    for d in sorted(TRENDS_DIR.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True):
+        mp = d / "manifest.json"
+        if d.is_dir() and mp.is_file():
+            try:
+                items.append(json.loads(mp.read_text(encoding="utf-8")))
+            except Exception:
+                continue
+    return items
+
+
+@app.post("/api/trends/compare")
+def run_trend_comparison(req: TrendCompareRequest) -> dict[str, Any]:
+    if len(req.snapshots) < 2:
+        raise HTTPException(status_code=400, detail="請至少勾選 2 個已完成 Phase 3 的分析紀錄")
+
+    loaded_snaps: list[dict[str, Any]] = []
+    for item in req.snapshots:
+        rp = _resolve_run_dir(item.run_id)
+        teams_p = rp / "phase3_icons" / "teams_with_icons.json"
+        if not teams_p.is_file():
+            raise HTTPException(status_code=400, detail=f"紀錄 {item.run_id} 尚未完成 Phase 3 職業辨識")
+        teams = json.loads(teams_p.read_text(encoding="utf-8"))
+        loaded_snaps.append(
+            {
+                "run_id": item.run_id,
+                "label": item.label.strip() or item.run_id,
+                "teams": teams,
+            }
+        )
+
+    trend = compare_multiple_runs(loaded_snaps, trend_title=req.trend_title)
+    trend_id = f"trend_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    manifest = export_trend_package(trend, TRENDS_DIR / trend_id)
+    return {"manifest": manifest, "trend": trend}
+
+
+@app.get("/api/trends/{trend_id}/files/{rel_path:path}")
+def serve_trend_file(trend_id: str, rel_path: str) -> FileResponse:
+    t_path = _resolve_trend_dir(trend_id)
+    target = (t_path / rel_path).resolve()
+    if not str(target).startswith(str(t_path)) or not target.is_file():
+        raise HTTPException(status_code=404, detail=f"找不到趨勢檔案: {rel_path}")
     return FileResponse(str(target))

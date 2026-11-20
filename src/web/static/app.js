@@ -60,10 +60,34 @@ async function refreshRuns(selectRunId = null) {
   });
 
   const target = selectRunId || (runs.length ? runs[0].run_id : "");
+  renderTrendRunsPicker(runs);
   if (target) {
     sel.value = target;
     await loadRun(target);
   }
+}
+
+function renderTrendRunsPicker(runs) {
+  const ready = runs.filter((r) => r.has_phase3);
+  if (!ready.length) {
+    $("trendRunsList").innerHTML = '<div class="muted">尚無已完成 Phase 3 的紀錄可做多期比較。</div>';
+    return;
+  }
+  // Display oldest -> newest by default so chronological order feels natural
+  const ordered = [...ready].reverse();
+  $("trendRunsList").innerHTML = ordered
+    .map(
+      (r, idx) => `
+      <div class="row" style="margin:6px 0;padding:8px 10px;background:var(--panel2);border-radius:8px">
+        <label style="min-width:260px;cursor:pointer">
+          <input type="checkbox" class="trend-chk" data-run-id="${r.run_id}" ${ordered.length >= 2 ? "checked" : ""}>
+          <b>${r.run_id}</b>
+        </label>
+        <input type="text" class="trend-lbl" data-run-id="${r.run_id}" value="第 ${idx + 1} 期 (${r.run_id.slice(0, 10)})" style="width:220px" placeholder="期別名稱">
+        <span class="muted">${r.video_name || ""}</span>
+      </div>`
+    )
+    .join("");
 }
 
 function fileUrl(relPath) {
@@ -232,7 +256,12 @@ function renderExportPanel(exp) {
   $("dlExcelPublic").href = fileUrl("share/report_public.xlsx");
   $("dlHtmlReport").href = fileUrl("share/report.html");
   $("summaryTextarea").value = exp.summary_text || "";
-  const cards = ["01_occupation_frequency.png", "02_ranking_tier_comparison.png", "03_top_combinations.png"];
+  const cards = [
+    "01_meta_quadrant.png",
+    "02_copy_count_impact.png",
+    "03_tier_heatmap_and_doubles.png",
+    "04_synergy_matrix.png",
+  ];
   $("shareCardsPreview").innerHTML = cards
     .map((c) => `<div><img class="preview" src="${fileUrl("share/cards/" + c)}" alt="${c}"></div>`)
     .join("");
@@ -410,6 +439,58 @@ $("btnPublishPages").onclick = async () => {
   } catch (e) {
     showNotice("發佈至 docs/ 失敗：" + e.message, "err");
   }
+};
+
+$("btnRunTrend").onclick = async () => {
+  const snaps = [];
+  document.querySelectorAll(".trend-chk:checked").forEach((chk) => {
+    const rid = chk.dataset.runId;
+    const lblInp = document.querySelector(`.trend-lbl[data-run-id="${rid}"]`);
+    snaps.push({ run_id: rid, label: lblInp ? lblInp.value.trim() : rid });
+  });
+  if (snaps.length < 2) {
+    return showNotice("請至少勾選 2 個分析紀錄才能進行多期趨勢對比", "warn");
+  }
+  try {
+    showNotice("⏳ 正在比對多期排名、Meta 演變與戰隊換角紀錄...", "warn");
+    const res = await api("/api/trends/compare", {
+      method: "POST",
+      body: JSON.stringify({
+        trend_title: $("trendTitleInput").value.trim() || "排位賽多期環境與戰隊趨勢對比",
+        snapshots: snaps,
+      }),
+    });
+    const m = res.manifest;
+    const t = res.trend;
+    const tid = m.trend_id;
+    $("trendResultCard").style.display = "block";
+    $("dlTrendExcel").href = `/api/trends/${encodeURIComponent(tid)}/files/trend_report.xlsx`;
+    $("dlTrendHtml").href = `/api/trends/${encodeURIComponent(tid)}/files/trend_report.html`;
+    $("trendSummaryBox").value = m.summary_text || "";
+    $("trendCardsPreview").innerHTML = ["01_meta_trend_lines.png", "02_meta_movers_delta.png"]
+      .map((c) => `<div><img class="preview" src="/api/trends/${encodeURIComponent(tid)}/files/cards/${c}?t=${Date.now()}" alt="${c}"></div>`)
+      .join("");
+    const ch = t.roster_changes || [];
+    $("trendChangesTable").innerHTML =
+      "<thead><tr><th>戰隊</th><th>區間</th><th>換角明細</th><th>排名變化</th><th>換角後 8 人名單</th></tr></thead><tbody>" +
+      (ch.length
+        ? ch
+            .map(
+              (c) =>
+                `<tr><td><b>${c.team_name}</b></td><td>${c.from_period}→${c.to_period}</td><td><code>${c.diff_summary}</code></td><td>#${c.rank_before} → #${c.rank_after} (${c.rank_delta >= 0 ? "+" : ""}${c.rank_delta})</td><td class="muted">${c.roster_after}</td></tr>`
+            )
+            .join("")
+        : '<tr><td colspan="5" class="muted">本次對比尚未偵測到同隊換角</td></tr>') +
+      "</tbody>";
+    showNotice(`✅ 多期趨勢分析完成！共追蹤 ${t.summary_counts.tracked_teams} 隊、偵測到 ${t.summary_counts.roster_change_events} 次換角。`, "ok");
+  } catch (e) {
+    showNotice("多期趨勢分析失敗：" + e.message, "err");
+  }
+};
+
+$("btnCopyTrendSummary").onclick = async () => {
+  await navigator.clipboard.writeText($("trendSummaryBox").value);
+  showNotice("📋 跨期趨勢戰報已複製到剪貼簿！", "ok");
 };
 
 refreshRuns();

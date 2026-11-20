@@ -1,4 +1,4 @@
-"""Discord / LINE / Forum copy-paste Markdown & plain-text summary generator."""
+"""Discord / LINE / Forum v2 Tournament Roster Strategy Summary Generator."""
 
 from __future__ import annotations
 
@@ -7,52 +7,55 @@ from typing import Any
 
 
 def generate_text_summary(analytics: dict[str, Any], output_path: str | Path | None = None) -> str:
-    """Create a concise, community-ready戰報 summary for Discord / LINE / forums."""
+    """Create a strategic tournament roster summary for Discord / LINE / forums."""
     ov = analytics["overview"]
-    title = analytics.get("report_title", "排位賽職業環境分析")
+    title = analytics.get("report_title", "排位賽戰隊排陣分析")
     lines = [
         f"## 🏆 {title}",
-        f"- **分析範圍**：第 #{ov['min_rank']} ～ #{ov['max_rank']} 名（共 **{ov['total_teams']} 隊**，{ov['distinct_occupations']} 種職業）",
+        f"- **分析範圍**：第 #{ov['min_rank']}～#{ov['max_rank']} 名（共 **{ov['total_teams']} 隊**｜統一範本・8人名單同職上限2）",
         "",
-        "### 📊 熱門職業排行（依隊伍攜帶率）",
+        "### ⭐ Meta 四象限分類",
     ]
-    for idx, r in enumerate(analytics["occupation_frequency"][:8], start=1):
-        lines.append(
-            f"{idx}. **{r['occupation']}** — 攜帶率 **{r['team_presence_rate']*100:.1f}%** "
-            f"（{r['team_count']} 隊｜總人次 {r['slot_count']} 次 / {r['slot_rate']*100:.1f}%｜均排 #{r['avg_rank']}）"
-        )
+    for q_label in ("T0 版本核心", "高端奇兵 / 黑馬", "普及標配 / 均勢", "低樣本觀察 (n<5)"):
+        members = [r for r in analytics["occupation_frequency"] if r["quadrant"] == q_label]
+        if members:
+            desc = "、".join(f"**{r['occupation']}**({r['team_presence_rate']*100:.0f}%, 均#{r['avg_rank']})" for r in members[:6])
+            lines.append(f"- **{q_label}**：{desc}")
 
-    lines.extend(["", "### 👑 前段班（Top 10）偏好職業"])
-    top_pref = sorted(
-        analytics["occupation_frequency"],
-        key=lambda r: (r["top10_rate"], -r["avg_rank"]),
-        reverse=True,
-    )[:5]
-    for r in top_pref:
-        diff = (r["top10_rate"] - r["team_presence_rate"]) * 100
-        sign = "+" if diff >= 0 else ""
-        lines.append(
-            f"- **{r['occupation']}**：Top 10 攜帶率 **{r['top10_rate']*100:.1f}%**（對比全體 {sign}{diff:.1f}%，Lift {r['top_tier_lift']}x）"
-        )
-
-    if analytics["pair_combinations"]:
-        lines.extend(["", "### 🤝 熱門雙職業核心組合"])
-        for r in analytics["pair_combinations"][:5]:
+    # Double-pick ROI highlights
+    dp_worthy = [
+        r for r in analytics["occupation_frequency"]
+        if r["copy_2"]["teams"] >= 2 and r["double_rank_gain"] is not None
+    ]
+    dp_worthy.sort(key=lambda r: -r["double_rank_gain"])
+    if dp_worthy:
+        lines.extend(["", "### ✌️ 雙開（帶 2 隻）名次效益排行（1隻 → 2隻）"])
+        for r in dp_worthy[:5]:
+            g = r["double_rank_gain"]
+            sign = "+" if g >= 0 else ""
             lines.append(
-                f"- **{r['combination']}**：{r['team_count']} 隊（{r['team_rate']*100:.1f}%｜均排 #{r['avg_rank']}）"
+                f"- **{r['occupation']}**：單帶均 #{r['copy_1']['avg_rank']} → 雙開均 **#{r['copy_2']['avg_rank']}**（{sign}{g} 名｜雙開 {r['copy_2']['teams']} 隊）"
             )
 
-    if analytics["triple_combinations"]:
-        lines.extend(["", "### 🔺 熱門三職業核心組合"])
-        for r in analytics["triple_combinations"][:5]:
-            lines.append(
-                f"- **{r['combination']}**：{r['team_count']} 隊（{r['team_rate']*100:.1f}%｜均排 #{r['avg_rank']}）"
-            )
+    if analytics.get("double_pick_structure"):
+        lines.extend(["", "### 🧩 戰隊「雙開組數」結構"])
+        for d in analytics["double_pick_structure"]:
+            lines.append(f"- **{d['label']}**：{d['team_count']} 隊（{d['team_rate']*100:.1f}%｜均排 **#{d['avg_rank']}**｜Top10 佔 {d['top10_count']} 隊）")
 
-    if analytics["same_class_doubles"]:
-        lines.extend(["", "### ✌️ 常見同職業雙開（2隻以上）"])
-        for r in analytics["same_class_doubles"][:5]:
-            lines.append(f"- **{r['combination']}**：{r['team_count']} 隊（{r['team_rate']*100:.1f}%）")
+    if analytics.get("synergy_pairs"):
+        lines.extend(["", "### 🔥 真正高協同搭檔（Synergy Lift ≥ 1.15）"])
+        for r in analytics["synergy_pairs"][:5]:
+            lines.append(f"- **{r['combination']}**：協同 **{r['synergy_lift']}x**（{r['team_count']} 隊｜均排 #{r['avg_rank']}）")
+
+    if analytics.get("substitution_pairs"):
+        lines.extend(["", "### ⚔️ 同位互斥替代（Synergy Lift ≤ 0.85）"])
+        for r in analytics["substitution_pairs"][:5]:
+            lines.append(f"- **{r['combination']}**：協同 **{r['synergy_lift']}x**（同隊僅 {r['team_count']} 隊，預期 {r['expected_rate']*100:.0f}%）")
+
+    if analytics.get("roster_archetypes"):
+        lines.extend(["", "### 📋 主流建隊流派骨架"])
+        for a in analytics["roster_archetypes"][:4]:
+            lines.append(f"- **{a['archetype_id']} {a['archetype_name']}**（{a['team_count']} 隊｜均排 #{a['avg_rank']}）：核心 `{a['core_classes']}`")
 
     text = "\n".join(lines).strip() + "\n"
     if output_path is not None:

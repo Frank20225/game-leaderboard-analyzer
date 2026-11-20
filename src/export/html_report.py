@@ -1,4 +1,4 @@
-"""Zero-dependency single-file interactive HTML report generator (share/report.html)."""
+"""Zero-dependency single-file interactive HTML report v2 (Tournament Roster Edition)."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ def generate_html_report(
     icon_paths_by_name: dict[str, str],
     output_path: str | Path,
 ) -> Path:
-    """Build a self-contained single-file interactive HTML report with embedded Base64 icons."""
+    """Build a self-contained single-file interactive HTML report for tournament roster analysis."""
     icons_b64 = {
         name: _encode_png_b64(p) for name, p in icon_paths_by_name.items() if p and Path(p).is_file()
     }
@@ -33,7 +33,7 @@ def generate_html_report(
         "icons": icons_b64,
     }
     json_blob = json.dumps(embedded_payload, ensure_ascii=False).replace("</", "<\\/")
-    safe_title = html.escape(analytics.get("report_title", "排位賽職業環境分析報告"))
+    safe_title = html.escape(analytics.get("report_title", "排位賽戰隊排陣分析報告"))
 
     html_doc = f"""<!DOCTYPE html>
 <html lang="zh-Hant">
@@ -43,54 +43,54 @@ def generate_html_report(
 <title>{safe_title}</title>
 <style>
   :root {{
-    --bg: #0f172a; --card: #1e293b; --card2: #263449; --text: #f8fafc;
-    --muted: #94a3b8; --accent: #38bdf8; --accent2: #f59e0b; --green: #22c55e; --border: #334155;
+    --bg: #0b1120; --card: #131c31; --card2: #1c2842; --text: #f8fafc;
+    --muted: #94a3b8; --accent: #38bdf8; --accent2: #f59e0b; --green: #4ade80; --red: #f87171; --border: #273552;
   }}
   * {{ box-sizing: border-box; }}
   body {{ margin: 0; font-family: "Microsoft JhengHei", "Segoe UI", system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; }}
-  .wrap {{ max-width: 1220px; margin: 0 auto; padding: 24px 16px 60px; }}
-  header {{ display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 12px; border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 22px; }}
-  h1 {{ margin: 0; font-size: 1.65rem; }}
-  .sub {{ color: var(--muted); font-size: 0.92rem; margin-top: 4px; }}
-  .kpis {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 22px; }}
+  .wrap {{ max-width: 1240px; margin: 0 auto; padding: 24px 16px 60px; }}
+  header {{ display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 12px; border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 20px; }}
+  h1 {{ margin: 0; font-size: 1.6rem; }}
+  .sub {{ color: var(--muted); font-size: 0.9rem; margin-top: 4px; }}
+  .kpis {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(185px, 1fr)); gap: 12px; margin-bottom: 20px; }}
   .kpi {{ background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }}
   .kpi .lbl {{ color: var(--muted); font-size: 0.82rem; }}
-  .kpi .val {{ font-size: 1.55rem; font-weight: 700; margin-top: 4px; color: var(--accent); }}
+  .kpi .val {{ font-size: 1.35rem; font-weight: 700; margin-top: 4px; color: var(--accent); }}
   .tabs {{ display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }}
-  .tab {{ background: var(--card); color: var(--muted); border: 1px solid var(--border); padding: 9px 16px; border-radius: 999px; cursor: pointer; font-weight: 600; font-size: 0.92rem; transition: .15s; }}
-  .tab.active {{ background: var(--accent); color: #0f172a; border-color: var(--accent); }}
+  .tab {{ background: var(--card); color: var(--muted); border: 1px solid var(--border); padding: 9px 15px; border-radius: 999px; cursor: pointer; font-weight: 600; font-size: 0.9rem; }}
+  .tab.active {{ background: var(--accent); color: #0b1120; border-color: var(--accent); }}
   .panel {{ display: none; }}
   .panel.active {{ display: block; }}
   .card {{ background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 18px; margin-bottom: 18px; }}
-  .card h2 {{ margin: 0 0 12px; font-size: 1.15rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }}
-  .bar-row {{ display: grid; grid-template-columns: 160px 1fr 125px; align-items: center; gap: 10px; margin: 8px 0; }}
-  .bar-label {{ display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 0.92rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
-  .ico {{ width: 28px; height: 28px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 1px solid rgba(255,255,255,.15); }}
-  .ico-sm {{ width: 24px; height: 24px; border-radius: 50%; object-fit: cover; vertical-align: middle; }}
-  .track {{ background: #0f172a; border-radius: 999px; height: 20px; overflow: hidden; position: relative; }}
-  .fill {{ height: 100%; border-radius: 999px; transition: width .3s ease; }}
-  .bar-val {{ text-align: right; font-variant-numeric: tabular-nums; font-size: 0.88rem; color: #e2e8f0; }}
-  .toggle-btn {{ background: var(--card2); color: var(--text); border: 1px solid var(--border); padding: 5px 12px; border-radius: 8px; cursor: pointer; font-size: 0.84rem; }}
-  .toggle-btn.active {{ background: var(--accent2); color: #0f172a; border-color: var(--accent2); font-weight: 700; }}
-  table {{ width: 100%; border-collapse: collapse; font-size: 0.88rem; }}
-  th, td {{ padding: 9px 10px; border-bottom: 1px solid var(--border); text-align: left; }}
-  th {{ background: #162033; color: #cbd5e1; position: sticky; top: 0; }}
+  .card h2 {{ margin: 0 0 10px; font-size: 1.12rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }}
+  .ico {{ width: 26px; height: 26px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 1px solid rgba(255,255,255,.15); }}
+  .lbl-flex {{ display: inline-flex; align-items: center; gap: 7px; font-weight: 600; }}
+  table {{ width: 100%; border-collapse: collapse; font-size: 0.87rem; }}
+  th, td {{ padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: left; }}
+  th {{ background: #0f172a; color: #cbd5e1; position: sticky; top: 0; }}
   tr:hover td {{ background: rgba(56,189,248,.06); }}
-  .table-wrap {{ overflow-x: auto; max-height: 640px; }}
-  .controls {{ display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; align-items: center; }}
-  input, select {{ background: #0f172a; color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 0.9rem; }}
+  .table-wrap {{ overflow-x: auto; max-height: 620px; }}
   .pill {{ display: inline-flex; align-items: center; gap: 4px; background: var(--card2); padding: 3px 8px; border-radius: 999px; font-size: 0.8rem; margin: 2px; }}
-  .pos {{ color: #4ade80; font-weight: 700; }}
-  .neg {{ color: #f87171; font-weight: 700; }}
-  footer {{ text-align: center; color: var(--muted); font-size: 0.82rem; margin-top: 32px; }}
-  @media (max-width: 640px) {{ .bar-row {{ grid-template-columns: 115px 1fr 85px; }} }}
+  .q-tag {{ padding: 2px 8px; border-radius: 999px; font-size: 0.78rem; font-weight: 700; display: inline-block; }}
+  .q-t0 {{ background: rgba(56,189,248,.2); color: #7dd3fc; }}
+  .q-dark {{ background: rgba(74,222,128,.2); color: #86efac; }}
+  .q-std {{ background: rgba(245,158,11,.2); color: #fde68a; }}
+  .q-low {{ background: rgba(148,163,184,.2); color: #cbd5e1; }}
+  .pos {{ color: var(--green); font-weight: 700; }}
+  .neg {{ color: var(--red); font-weight: 700; }}
+  .controls {{ display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; align-items: center; }}
+  input, select {{ background: #0b1120; color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 0.9rem; }}
+  .quad-wrap {{ position: relative; width: 100%; overflow-x: auto; }}
+  svg.quad {{ width: 100%; max-width: 960px; height: auto; display: block; margin: 0 auto; background: #0f172a; border-radius: 12px; border: 1px solid var(--border); }}
+  .heat-cell {{ text-align: center; font-weight: 700; border-radius: 4px; }}
+  footer {{ text-align: center; color: var(--muted); font-size: 0.82rem; margin-top: 28px; }}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
     <div>
-      <h1 id="reportTitle">{safe_title}</h1>
+      <h1>{safe_title}</h1>
       <div class="sub" id="reportSub"></div>
     </div>
     <div class="sub" id="genTime"></div>
@@ -99,69 +99,84 @@ def generate_html_report(
   <section class="kpis" id="kpiRow"></section>
 
   <nav class="tabs">
-    <button class="tab active" data-tab="occ">職業出場率</button>
-    <button class="tab" data-tab="tier">Top 10 / 50 / 100 區間對比</button>
-    <button class="tab" data-tab="combos">雙・三・八職業組合</button>
-    <button class="tab" data-tab="raw">完整排行榜查詢</button>
+    <button class="tab active" data-tab="quad">1. Meta 四象限＆出場率</button>
+    <button class="tab" data-tab="doubles">2. 0/1/2隻 雙開效益</button>
+    <button class="tab" data-tab="tiers">3. 互斥分段＆雙開結構</button>
+    <button class="tab" data-tab="synergy">4. 協同/互斥＆建隊流派</button>
+    <button class="tab" data-tab="raw">5. 完整排行榜查詢</button>
   </nav>
 
-  <section id="tab-occ" class="panel active">
+  <section id="tab-quad" class="panel active">
     <div class="card">
-      <h2>
-        <span>各職業出場統計</span>
-        <span>
-          <button class="toggle-btn active" id="btnMetricTeam">隊伍攜帶率 (/隊數)</button>
-          <button class="toggle-btn" id="btnMetricSlot">總人次佔比 (/總格數)</button>
-        </span>
-      </h2>
-      <div id="occBars"></div>
+      <h2>Meta 四象限戰略圖（X＝隊伍攜帶率，Y＝平均排名越上越強）</h2>
+      <div class="quad-wrap" id="quadSvgBox"></div>
     </div>
     <div class="card">
-      <h2>職業詳細數據表</h2>
+      <h2>職業環境總表</h2>
       <div class="table-wrap"><table id="occTable"></table></div>
     </div>
   </section>
 
-  <section id="tab-tier" class="panel">
+  <section id="tab-doubles" class="panel">
     <div class="card">
-      <h2>Top 10 / Top 50 / Top 100 職業攜帶率與排名關聯</h2>
-      <p class="sub">Spearman 相關係數為負值代表該職業越常出現在高排名（名次數字越小）；高排優勢比 (Lift) &gt; 1.0 代表前段班更偏好該職業。</p>
-      <div class="table-wrap"><table id="tierTable"></table></div>
+      <h2>0 隻 vs 1 隻（單帶）vs 2 隻（滿編雙開）平均排名對比</h2>
+      <p class="sub">賽制規定 8 人名單同職業最多 2 名。下表直接呈現各職業從「單帶」升級為「滿編雙開」時，平均排名的提升（正值＝雙開名次更靠前）。</p>
+      <div class="table-wrap"><table id="copyTable"></table></div>
     </div>
   </section>
 
-  <section id="tab-combos" class="panel">
+  <section id="tab-tiers" class="panel">
     <div class="card">
-      <h2>熱門雙職業組合（每隊去重）</h2>
-      <div class="table-wrap"><table id="pairTable"></table></div>
+      <h2>互斥分段攜帶率熱力圖（各段完全不重疊）</h2>
+      <div class="table-wrap"><table id="tierHeatTable"></table></div>
     </div>
     <div class="card">
-      <h2>同職業雙開 / 三開統計</h2>
-      <div class="table-wrap"><table id="dupTable"></table></div>
+      <h2>戰隊「雙開組數」策略結構（8 異職 vs 1 / 2 / 3 組雙開）</h2>
+      <div class="table-wrap"><table id="dpStructTable"></table></div>
+    </div>
+  </section>
+
+  <section id="tab-synergy" class="panel">
+    <div class="card">
+      <h2>主流 8 人建隊流派骨架（Roster Archetypes）</h2>
+      <div class="table-wrap"><table id="archTable"></table></div>
+    </div>
+    <div class="card">
+      <h2>強烈綁定搭檔（Synergy Lift ≥ 1.15）</h2>
+      <p class="sub">排除熱門職相乘造成的假協同：Lift 越高代表兩個職業越常「成套出現」。</p>
+      <div class="table-wrap"><table id="synTable"></table></div>
+    </div>
+    <div class="card">
+      <h2>同定位互斥替代（Synergy Lift ≤ 0.85）</h2>
+      <p class="sub">帶了 A 就明顯較少帶 B，代表這兩個職業常在搶同一個名單席次。</p>
+      <div class="table-wrap"><table id="subTable"></table></div>
     </div>
     <div class="card">
       <h2>熱門三職業組合（每隊去重）</h2>
       <div class="table-wrap"><table id="tripleTable"></table></div>
     </div>
-    <div class="card">
-      <h2>完整八職業陣容排行（保留重複數量）</h2>
-      <div class="table-wrap"><table id="fullTable"></table></div>
-    </div>
   </section>
 
   <section id="tab-raw" class="panel">
     <div class="card">
-      <h2>完整排行榜資料</h2>
+      <h2>完整排行榜資料查詢</h2>
       <div class="controls">
         <input id="searchInput" type="search" placeholder="搜尋戰隊名稱或排名...">
         <select id="occFilter"><option value="">篩選特定職業（全部）</option></select>
+        <select id="dpFilter">
+          <option value="">篩選雙開組數（全部）</option>
+          <option value="0">0 雙開（8異職）</option>
+          <option value="1">1 組雙開</option>
+          <option value="2">2 組雙開</option>
+          <option value="3">3+ 組雙開</option>
+        </select>
         <span class="sub" id="rawCount"></span>
       </div>
       <div class="table-wrap"><table id="rawTable"></table></div>
     </div>
   </section>
 
-  <footer>Generated by Game Leaderboard Analyzer — Self-contained interactive report</footer>
+  <footer>Game Leaderboard Analyzer v2 — Tournament Roster Strategy Report</footer>
 </div>
 
 <script>
@@ -170,20 +185,22 @@ const A = DATA.analytics;
 const ICONS = DATA.icons || {{}};
 const pct = v => (Number(v || 0) * 100).toFixed(1) + '%';
 const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}}[m]));
-const iconHtml = (name, cls='ico') => ICONS[name] ? `<img class="${{cls}}" src="${{ICONS[name]}}" alt="${{esc(name)}}" title="${{esc(name)}}">` : '';
+const ico = n => ICONS[n] ? `<img class="ico" src="${{ICONS[n]}}" alt="${{esc(n)}}">` : '';
+const qCls = q => q.includes('T0') ? 'q-t0' : q.includes('黑馬') ? 'q-dark' : q.includes('標配') ? 'q-std' : 'q-low';
 
 document.getElementById('genTime').textContent = '產生時間：' + DATA.generated_at;
 const ov = A.overview;
-document.getElementById('reportSub').textContent = `涵蓋排名 #${{ov.min_rank}} ～ #${{ov.max_rank}}｜共 ${{ov.total_teams}} 隊、${{ov.total_non_empty_slots}} 個有效職業格`;
+document.getElementById('reportSub').textContent = `涵蓋排名 #${{ov.min_rank}}～#${{ov.max_rank}}｜共 ${{ov.total_teams}} 隊（8人名單・同職上限2・統一範本 BO5）`;
 
+const bestDP = [...A.double_pick_structure].sort((a,b) => a.avg_rank - b.avg_rank)[0];
+const bestSyn = A.synergy_pairs[0];
 document.getElementById('kpiRow').innerHTML = [
   ['分析隊伍數', ov.total_teams + ' 隊'],
-  ['辨識職業種類', ov.distinct_occupations + ' 種'],
-  ['最熱門職業', A.occupation_frequency[0] ? A.occupation_frequency[0].occupation + ' (' + pct(A.occupation_frequency[0].team_presence_rate) + ')' : '-'],
-  ['最熱門雙人組', A.pair_combinations[0] ? A.pair_combinations[0].combination : '-'],
+  ['辨識職業數', ov.distinct_occupations + ' 種'],
+  ['最強勢雙開結構', bestDP ? `${{bestDP.label}} (均#${{bestDP.avg_rank}})` : '-'],
+  ['最強綁定搭檔', bestSyn ? `${{bestSyn.combination}} (${{bestSyn.synergy_lift}}x)` : '-'],
 ].map(([l, v]) => `<div class="kpi"><div class="lbl">${{l}}</div><div class="val">${{esc(v)}}</div></div>`).join('');
 
-// Tabs
 document.querySelectorAll('.tab').forEach(btn => btn.onclick = () => {{
   document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
@@ -191,67 +208,112 @@ document.querySelectorAll('.tab').forEach(btn => btn.onclick = () => {{
   document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
 }});
 
-let occMetric = 'team';
-function renderOccBars() {{
-  const rows = [...A.occupation_frequency].sort((a, b) =>
-    occMetric === 'team' ? b.team_presence_rate - a.team_presence_rate : b.slot_rate - a.slot_rate
-  );
-  const maxVal = Math.max(...rows.map(r => occMetric === 'team' ? r.team_presence_rate : r.slot_rate), 0.1);
-  document.getElementById('occBars').innerHTML = rows.map(r => {{
-    const val = occMetric === 'team' ? r.team_presence_rate : r.slot_rate;
-    const w = Math.max(2, (val / maxVal) * 100);
-    const color = occMetric === 'team' ? 'linear-gradient(90deg,#0284c7,#38bdf8)' : 'linear-gradient(90deg,#d97706,#fbbf24)';
-    const txt = occMetric === 'team' ? `${{pct(val)}} (${{r.team_count}}隊)` : `${{pct(val)}} (${{r.slot_count}}次)`;
-    return `<div class="bar-row"><div class="bar-label">${{iconHtml(r.occupation)}}<span>${{esc(r.occupation)}}</span></div><div class="track"><div class="fill" style="width:${{w}}%;background:${{color}}"></div></div><div class="bar-val">${{txt}}</div></div>`;
-  }}).join('');
-}}
-document.getElementById('btnMetricTeam').onclick = () => {{ occMetric='team'; btnMetricTeam.classList.add('active'); btnMetricSlot.classList.remove('active'); renderOccBars(); }};
-document.getElementById('btnMetricSlot').onclick = () => {{ occMetric='slot'; btnMetricSlot.classList.add('active'); btnMetricTeam.classList.remove('active'); renderOccBars(); }};
-renderOccBars();
+// Render crisp inline SVG Meta Quadrant
+(function renderQuad() {{
+  const rows = A.occupation_frequency;
+  if (!rows.length) return;
+  const W = 920, H = 540, padL = 62, padR = 30, padT = 36, padB = 48;
+  const minR = Math.max(1, Math.min(...rows.map(r => r.avg_rank)) - 2);
+  const maxR = Math.max(...rows.map(r => r.avg_rank)) + 2.2;
+  const xOf = p => padL + (p / 105) * (W - padL - padR);
+  const yOf = r => padT + ((r - minR) / Math.max(1, maxR - minR)) * (H - padT - padB);
+  const xMid = xOf(50), yMid = yOf(ov.overall_avg_rank);
+
+  let items = '';
+  rows.forEach((r, idx) => {{
+    const cx = xOf(r.team_presence_rate * 100);
+    const cy = yOf(r.avg_rank);
+    const clipId = 'clip_' + idx;
+    const imgTag = ICONS[r.occupation]
+      ? `<defs><clipPath id="${{clipId}}"><circle cx="${{cx}}" cy="${{cy}}" r="15"/></clipPath></defs><image href="${{ICONS[r.occupation]}}" x="${{cx-15}}" y="${{cy-15}}" width="30" height="30" clip-path="url(#${{clipId}})"/>`
+      : `<circle cx="${{cx}}" cy="${{cy}}" r="11" fill="#38bdf8"/>`;
+    const ring = r.low_sample ? `<circle cx="${{cx}}" cy="${{cy}}" r="18" fill="none" stroke="#f59e0b" stroke-dasharray="4 3" stroke-width="1.5"/>` : '';
+    items += `${{ring}}${{imgTag}}<text x="${{cx}}" y="${{cy+27}}" text-anchor="middle" fill="${{r.low_sample ? '#fcd34d' : '#f8fafc'}}" font-size="11" font-weight="700">${{esc(r.occupation)}} #${{r.avg_rank}}</text>`;
+  }});
+
+  document.getElementById('quadSvgBox').innerHTML = `
+  <svg class="quad" viewBox="0 0 ${{W}} ${{H}}">
+    <rect x="${{xMid}}" y="${{padT}}" width="${{W-padR-xMid}}" height="${{yMid-padT}}" fill="#38bdf8" fill-opacity="0.06"/>
+    <line x1="${{xMid}}" y1="${{padT}}" x2="${{xMid}}" y2="${{H-padB}}" stroke="#475569" stroke-dasharray="6 4"/>
+    <line x1="${{padL}}" y1="${{yMid}}" x2="${{W-padR}}" y2="${{yMid}}" stroke="#475569" stroke-dasharray="6 4"/>
+    <text x="${{W-padR-8}}" y="${{padT+18}}" text-anchor="end" fill="#38bdf8" font-size="12" font-weight="700">★ T0 版本核心（高攜帶 × 高排）</text>
+    <text x="${{padL+8}}" y="${{padT+18}}" text-anchor="start" fill="#4ade80" font-size="12" font-weight="700">⚡ 高端奇兵 / 黑馬</text>
+    <text x="${{W-padR-8}}" y="${{H-padB-10}}" text-anchor="end" fill="#fbbf24" font-size="11.5" font-weight="700">⚖️ 普及標配</text>
+    <text x="${{padL+8}}" y="${{H-padB-10}}" text-anchor="start" fill="#94a3b8" font-size="11.5" font-weight="700">🧊 冷門職</text>
+    <text x="${{W/2}}" y="${{H-12}}" text-anchor="middle" fill="#cbd5e1" font-size="12">隊伍攜帶率 (%) →</text>
+    <text x="16" y="${{H/2}}" text-anchor="middle" fill="#cbd5e1" font-size="12" transform="rotate(-90 16 ${{H/2}})">平均排名（越上方越高排 ↑）</text>
+    ${{items}}
+  </svg>`;
+}})();
 
 document.getElementById('occTable').innerHTML =
-  '<thead><tr><th>職業</th><th>總人次</th><th>總人次佔比</th><th>攜帶隊數</th><th>隊伍攜帶率</th><th>攜帶隊均數</th><th>多開隊數</th><th>平均排名</th><th>最高排名</th></tr></thead><tbody>' +
-  A.occupation_frequency.map(r => `<tr><td><div class="bar-label">${{iconHtml(r.occupation,'ico-sm')}}<span>${{esc(r.occupation)}}</span></div></td><td>${{r.slot_count}}</td><td>${{pct(r.slot_rate)}}</td><td>${{r.team_count}}</td><td><b>${{pct(r.team_presence_rate)}}</b></td><td>${{r.avg_per_carrying_team}}</td><td>${{r.multi_copy_teams}}</td><td>#${{r.avg_rank}}</td><td>#${{r.best_rank}}</td></tr>`).join('') +
+  '<thead><tr><th>職業</th><th>Meta 象限</th><th>攜帶率(隊數)</th><th>總人次佔比</th><th>雙開率(隊數)</th><th>平均排名</th><th>高排Lift</th><th>Spearman r</th></tr></thead><tbody>' +
+  A.occupation_frequency.map(r => `<tr><td><span class="lbl-flex">${{ico(r.occupation)}}${{esc(r.occupation)}}</span></td><td><span class="q-tag ${{qCls(r.quadrant)}}">${{esc(r.quadrant)}}</span></td><td><b>${{pct(r.team_presence_rate)}}</b> (${{r.team_count}}隊)</td><td>${{pct(r.slot_rate)}} (${{r.slot_count}})</td><td>${{pct(r.double_pick_rate)}} (${{r.double_pick_teams}}隊)</td><td><b>#${{r.avg_rank}}</b></td><td>${{r.top_tier_lift}}x</td><td class="${{r.spearman_r<=-0.15?'pos':r.spearman_r>=0.15?'neg':''}}">${{r.spearman_r}}</td></tr>`).join('') +
   '</tbody>';
 
-document.getElementById('tierTable').innerHTML =
-  '<thead><tr><th>職業</th><th>整體攜帶率</th><th>Top 10</th><th>Top 50</th><th>Top 100</th><th>Top10 差值</th><th>高排優勢比(Lift)</th><th>平均排名</th><th>Spearman r</th></tr></thead><tbody>' +
-  A.ranking_analysis.occupation_tier_comparison.map(r => {{
-    const diff = r.top10_rate - r.team_presence_rate;
-    const cls = diff >= 0 ? 'pos' : 'neg';
-    return `<tr><td><div class="bar-label">${{iconHtml(r.occupation,'ico-sm')}}<span>${{esc(r.occupation)}}</span></div></td><td>${{pct(r.team_presence_rate)}}</td><td><b>${{pct(r.top10_rate)}}</b></td><td>${{pct(r.top50_rate)}}</td><td>${{pct(r.top100_rate)}}</td><td class="${{cls}}">${{diff>=0?'+':''}}${{pct(diff)}}</td><td>${{r.top_tier_lift}}x</td><td>#${{r.avg_rank}}</td><td>${{r.spearman_r}}</td></tr>`;
+const fmtB = b => b && b.teams ? `<b>#${{b.avg_rank}}</b> <span class="sub">(${{b.teams}}隊${{b.low_sample?', n<5':''}})</span>` : '<span class="sub">-</span>';
+document.getElementById('copyTable').innerHTML =
+  '<thead><tr><th>職業</th><th>帶 0 隻（不帶）</th><th>帶 1 隻（單帶）</th><th>帶 2 隻（滿編雙開）</th><th>雙開名次提升 (1→2)</th></tr></thead><tbody>' +
+  A.occupation_frequency.map(r => {{
+    const g = r.double_rank_gain;
+    const gHtml = g === null || g === undefined ? '-' : `<span class="${{g>=0?'pos':'neg'}}">${{g>=0?'+':''}}${{g}} 名</span>`;
+    return `<tr><td><span class="lbl-flex">${{ico(r.occupation)}}${{esc(r.occupation)}}</span></td><td>${{fmtB(r.copy_0)}}</td><td>${{fmtB(r.copy_1)}}</td><td>${{fmtB(r.copy_2)}}</td><td>${{gHtml}}</td></tr>`;
   }}).join('') + '</tbody>';
 
-function fillComboTable(id, rows) {{
+const tiers = A.ranking_analysis.tiers;
+document.getElementById('tierHeatTable').innerHTML =
+  `<thead><tr><th>職業</th><th>整體</th>${{tiers.map(t => `<th>${{esc(t.tier)}} (${{t.team_count}}隊)</th>`).join('')}}<th>平均排名</th></tr></thead><tbody>` +
+  A.ranking_analysis.occupation_tier_comparison.map(r => `<tr><td><span class="lbl-flex">${{ico(r.occupation)}}${{esc(r.occupation)}}</span></td><td>${{pct(r.team_presence_rate)}}</td>${{tiers.map(t => {{
+    const v = r.tier_rates[t.tier] || 0;
+    const alpha = (0.1 + v * 0.65).toFixed(2);
+    return `<td class="heat-cell" style="background:rgba(56,189,248,${{alpha}})">${{pct(v)}}</td>`;
+  }}).join('')}}<td><b>#${{r.avg_rank}}</b></td></tr>`).join('') + '</tbody>';
+
+document.getElementById('dpStructTable').innerHTML =
+  '<thead><tr><th>雙開組數配置</th><th>隊伍數</th><th>佔比</th><th>平均排名</th><th>中位排名</th><th>最高排名</th><th>Top 10 隊數</th></tr></thead><tbody>' +
+  A.double_pick_structure.map(d => `<tr><td><b>${{esc(d.label)}}</b></td><td>${{d.team_count}}</td><td>${{pct(d.team_rate)}}</td><td><b>#${{d.avg_rank}}</b></td><td>#${{d.median_rank}}</td><td>#${{d.best_rank}}</td><td>${{d.top10_count}}</td></tr>`).join('') + '</tbody>';
+
+document.getElementById('archTable').innerHTML =
+  '<thead><tr><th>流派</th><th>隊數(佔比)</th><th>均排 / 最高</th><th>平均雙開</th><th>核心必帶職</th><th>常見搖擺位</th><th>代表戰隊</th></tr></thead><tbody>' +
+  (A.roster_archetypes || []).map(a => `<tr><td><b>${{esc(a.archetype_id)}}</b> ${{esc(a.archetype_name)}}</td><td>${{a.team_count}} (${{pct(a.team_rate)}})</td><td><b>#${{a.avg_rank}}</b> / #${{a.best_rank}}</td><td>${{a.avg_double_picks}}</td><td>${{esc(a.core_classes)}}</td><td class="sub">${{esc(a.flex_classes)}}</td><td class="sub">${{esc(a.sample_teams)}}</td></tr>`).join('') + '</tbody>';
+
+const fillSyn = (id, rows) => {{
   document.getElementById(id).innerHTML =
-    '<thead><tr><th>組合</th><th>隊數</th><th>佔比</th><th>平均排名</th><th>最高排名</th><th>Top 10 佔比</th><th>Top 50 佔比</th><th>代表戰隊</th></tr></thead><tbody>' +
-    (rows.length ? rows.map(r => `<tr><td><b>${{esc(r.combination)}}</b></td><td>${{r.team_count}}</td><td>${{pct(r.team_rate)}}</td><td>#${{r.avg_rank}}</td><td>#${{r.best_rank}}</td><td>${{pct(r.top10_rate)}}</td><td>${{pct(r.top50_rate)}}</td><td class="sub">${{esc(r.sample_teams)}}</td></tr>`).join('') : '<tr><td colspan="8" class="sub">無符合條件的組合</td></tr>') +
-    '</tbody>';
-}}
-fillComboTable('pairTable', A.pair_combinations.slice(0, 40));
-fillComboTable('dupTable', [...A.same_class_doubles, ...A.same_class_triples]);
-fillComboTable('tripleTable', A.triple_combinations.slice(0, 40));
-fillComboTable('fullTable', A.full_team_combinations.slice(0, 60));
+    '<thead><tr><th>組合</th><th>協同 Lift</th><th>實際佔比(隊數)</th><th>隨機預期</th><th>平均排名</th><th>代表戰隊</th></tr></thead><tbody>' +
+    (rows.length ? rows.map(r => `<tr><td><b>${{esc(r.combination)}}</b></td><td class="${{r.synergy_lift>=1.15?'pos':'neg'}}">${{r.synergy_lift}}x</td><td>${{pct(r.team_rate)}} (${{r.team_count}}隊)</td><td>${{pct(r.expected_rate)}}</td><td>${{r.avg_rank ? '#'+r.avg_rank : '-'}}</td><td class="sub">${{esc(r.sample_teams)}}</td></tr>`).join('') : '<tr><td colspan="6" class="sub">無明顯項目</td></tr>') + '</tbody>';
+}};
+fillSyn('synTable', A.synergy_pairs || []);
+fillSyn('subTable', A.substitution_pairs || []);
+
+document.getElementById('tripleTable').innerHTML =
+  '<thead><tr><th>三職業組合</th><th>隊數</th><th>佔比</th><th>平均排名</th><th>Top 10 佔比</th><th>代表戰隊</th></tr></thead><tbody>' +
+  (A.triple_combinations || []).slice(0, 35).map(r => `<tr><td><b>${{esc(r.combination)}}</b></td><td>${{r.team_count}}</td><td>${{pct(r.team_rate)}}</td><td>#${{r.avg_rank}}</td><td>${{pct(r.top10_rate)}}</td><td class="sub">${{esc(r.sample_teams)}}</td></tr>`).join('') + '</tbody>';
 
 const occSel = document.getElementById('occFilter');
 A.occupation_frequency.forEach(r => {{ const o = document.createElement('option'); o.value = r.occupation; o.textContent = r.occupation; occSel.appendChild(o); }});
+const dpSel = document.getElementById('dpFilter');
 
 function renderRaw() {{
   const q = document.getElementById('searchInput').value.trim().toLowerCase();
   const occ = occSel.value;
+  const dp = dpSel.value;
   const filtered = A.raw_data.filter(r => {{
     if (occ && !r.occupations.includes(occ)) return false;
+    if (dp !== '') {{
+      const dpc = r.double_pick_count || 0;
+      if (dp === '3' ? dpc < 3 : dpc !== Number(dp)) return false;
+    }}
     if (q && !(String(r.rank).includes(q) || (r.team_name || '').toLowerCase().includes(q) || (r.full_team_signature || '').toLowerCase().includes(q))) return false;
     return true;
   }});
   document.getElementById('rawCount').textContent = `顯示 ${{filtered.length}} / ${{A.raw_data.length}} 隊`;
   document.getElementById('rawTable').innerHTML =
-    '<thead><tr><th>排名</th><th>戰隊名稱</th><th>積分</th><th>8 職業配置</th></tr></thead><tbody>' +
-    filtered.map(r => `<tr><td><b>#${{r.rank}}</b></td><td>${{esc(r.team_name)}}</td><td>${{r.score ?? '-'}}</td><td>${{r.occupations.map(o => `<span class="pill">${{iconHtml(o,'ico-sm')}}<span>${{esc(o)}}</span></span>`).join('')}}</td></tr>`).join('') +
-    '</tbody>';
+    '<thead><tr><th>排名</th><th>戰隊名稱</th><th>積分</th><th>雙開</th><th>8 人名單配置</th></tr></thead><tbody>' +
+    filtered.map(r => `<tr><td><b>#${{r.rank}}</b></td><td>${{esc(r.team_name)}}</td><td>${{r.score ?? '-'}}</td><td>${{r.double_pick_count}}</td><td>${{r.occupations.map(o => `<span class="pill">${{ico(o)}}<span>${{esc(o)}}</span></span>`).join('')}}</td></tr>`).join('') + '</tbody>';
 }}
 document.getElementById('searchInput').oninput = renderRaw;
 occSel.onchange = renderRaw;
+dpSel.onchange = renderRaw;
 renderRaw();
 </script>
 </body>
