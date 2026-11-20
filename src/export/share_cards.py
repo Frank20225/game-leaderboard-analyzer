@@ -237,13 +237,13 @@ def generate_share_cards(
     fig, (ax1, ax2) = plt.subplots(
         1, 2, figsize=(13.0, max(6.0, len(heat_occs) * 0.45)), gridspec_kw={"width_ratios": [1.35, 1.0]}, facecolor="#0f172a"
     )
-    fig.suptitle(f"{title}｜互斥分段攜帶率熱力圖 ＆ 雙開組隊結構\n{subtitle}", color="#ffffff", fontsize=14, fontweight="bold", y=0.97)
+    fig.suptitle(f"{title}｜各名次區間職業熱門度 ＆ 雙開組隊結構\n{subtitle}（左邊越高＝強隊越愛帶）", color="#ffffff", fontsize=14, fontweight="bold", y=0.97)
 
-    # Left: Heatmap
+    # Left: Rank Bracket Popularity Table
     ax1.set_facecolor("#162033")
     im = ax1.imshow(heat_mat, cmap="YlGnBu", aspect="auto", vmin=0, vmax=100)
     ax1.set_xticks(np.arange(len(tiers)))
-    ax1.set_xticklabels([f"{t}\n({tier_counts[t]}隊)" for t in tiers], color="#f8fafc", fontsize=10, fontweight="bold")
+    ax1.set_xticklabels([f"{t} 名\n({tier_counts[t]}隊)" for t in tiers], color="#f8fafc", fontsize=10, fontweight="bold")
     ax1.set_yticks(np.arange(len(heat_occs)))
     ax1.set_yticklabels([r["occupation"] for r in heat_occs], color="#f8fafc", fontsize=10.5, fontweight="bold")
     for i in range(len(heat_occs)):
@@ -251,7 +251,7 @@ def generate_share_cards(
             val = heat_mat[i, j]
             txt_col = "#ffffff" if val >= 48 else "#0f172a"
             ax1.text(j, i, f"{val:.0f}%", ha="center", va="center", color=txt_col, fontsize=9.5, fontweight="bold")
-    ax1.set_title("各互斥分段隊伍攜帶率 (%)", color="#e2e8f0", fontsize=11.5, fontweight="bold", pad=10)
+    ax1.set_title("各名次區間有幾 % 隊伍帶該職業（深色＝越熱門）", color="#e2e8f0", fontsize=11, fontweight="bold", pad=10)
 
     # Right: Double-pick structure bars
     ax2.set_facecolor("#162033")

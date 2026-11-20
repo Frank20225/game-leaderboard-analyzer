@@ -99,14 +99,33 @@ def generate_html_report(
   <section class="kpis" id="kpiRow"></section>
 
   <nav class="tabs">
-    <button class="tab active" data-tab="quad">1. Meta 四象限＆出場率</button>
-    <button class="tab" data-tab="doubles">2. 0/1/2隻 雙開效益</button>
-    <button class="tab" data-tab="tiers">3. 互斥分段＆雙開結構</button>
-    <button class="tab" data-tab="synergy">4. 協同/互斥＆建隊流派</button>
-    <button class="tab" data-tab="raw">5. 完整排行榜查詢</button>
+    <button class="tab active" data-tab="raw">1. 完整排行榜查詢</button>
+    <button class="tab" data-tab="quad">2. Meta 四象限＆出場率</button>
+    <button class="tab" data-tab="doubles">3. 0/1/2隻 雙開效益</button>
+    <button class="tab" data-tab="tiers">4. 各名次區間趨勢＆雙開結構</button>
+    <button class="tab" data-tab="synergy">5. 協同/互斥＆建隊流派</button>
   </nav>
 
-  <section id="tab-quad" class="panel active">
+  <section id="tab-raw" class="panel active">
+    <div class="card">
+      <h2>完整排行榜資料查詢</h2>
+      <div class="controls">
+        <input id="searchInput" type="search" placeholder="搜尋戰隊名稱或排名...">
+        <select id="occFilter"><option value="">篩選特定職業（全部）</option></select>
+        <select id="dpFilter">
+          <option value="">篩選雙開組數（全部）</option>
+          <option value="0">0 雙開（8異職）</option>
+          <option value="1">1 組雙開</option>
+          <option value="2">2 組雙開</option>
+          <option value="3">3+ 組雙開</option>
+        </select>
+        <span class="sub" id="rawCount"></span>
+      </div>
+      <div class="table-wrap"><table id="rawTable"></table></div>
+    </div>
+  </section>
+
+  <section id="tab-quad" class="panel">
     <div class="card">
       <h2>Meta 四象限戰略圖（X＝隊伍攜帶率，Y＝平均排名越上越強）</h2>
       <div class="quad-wrap" id="quadSvgBox"></div>
@@ -127,7 +146,8 @@ def generate_html_report(
 
   <section id="tab-tiers" class="panel">
     <div class="card">
-      <h2>互斥分段攜帶率熱力圖（各段完全不重疊）</h2>
+      <h2>各名次區間的職業熱門度（前段班 vs 中後段班差在哪？）</h2>
+      <p class="sub">💡 <b>怎麼看？</b>橫著從左往右看（左邊是前 10 名、右邊是後段班）：<b>越左邊數字越高（底色越亮）</b>＝頂尖強隊越愛用；<b>左右差不多</b>＝各分段都會帶的標配；<b>越右邊越高</b>＝中後段隊伍帶得較多。</p>
       <div class="table-wrap"><table id="tierHeatTable"></table></div>
     </div>
     <div class="card">
@@ -154,25 +174,6 @@ def generate_html_report(
     <div class="card">
       <h2>熱門三職業組合（每隊去重）</h2>
       <div class="table-wrap"><table id="tripleTable"></table></div>
-    </div>
-  </section>
-
-  <section id="tab-raw" class="panel">
-    <div class="card">
-      <h2>完整排行榜資料查詢</h2>
-      <div class="controls">
-        <input id="searchInput" type="search" placeholder="搜尋戰隊名稱或排名...">
-        <select id="occFilter"><option value="">篩選特定職業（全部）</option></select>
-        <select id="dpFilter">
-          <option value="">篩選雙開組數（全部）</option>
-          <option value="0">0 雙開（8異職）</option>
-          <option value="1">1 組雙開</option>
-          <option value="2">2 組雙開</option>
-          <option value="3">3+ 組雙開</option>
-        </select>
-        <span class="sub" id="rawCount"></span>
-      </div>
-      <div class="table-wrap"><table id="rawTable"></table></div>
     </div>
   </section>
 
@@ -261,13 +262,22 @@ document.getElementById('copyTable').innerHTML =
   }}).join('') + '</tbody>';
 
 const tiers = A.ranking_analysis.tiers;
+const firstTierKey = tiers.length ? tiers[0].tier : '';
+const lastTierKey = tiers.length ? tiers[tiers.length - 1].tier : '';
 document.getElementById('tierHeatTable').innerHTML =
-  `<thead><tr><th>職業</th><th>整體</th>${{tiers.map(t => `<th>${{esc(t.tier)}} (${{t.team_count}}隊)</th>`).join('')}}<th>平均排名</th></tr></thead><tbody>` +
-  A.ranking_analysis.occupation_tier_comparison.map(r => `<tr><td><span class="lbl-flex">${{ico(r.occupation)}}${{esc(r.occupation)}}</span></td><td>${{pct(r.team_presence_rate)}}</td>${{tiers.map(t => {{
-    const v = r.tier_rates[t.tier] || 0;
-    const alpha = (0.1 + v * 0.65).toFixed(2);
-    return `<td class="heat-cell" style="background:rgba(56,189,248,${{alpha}})">${{pct(v)}}</td>`;
-  }}).join('')}}<td><b>#${{r.avg_rank}}</b></td></tr>`).join('') + '</tbody>';
+  `<thead><tr><th>職業</th><th>全體平均</th>${{tiers.map(t => `<th>${{esc(t.tier)}} 名<br><span class="sub">(${{t.team_count}}隊)</span></th>`).join('')}}<th>前段 vs 後段差</th><th>平均排名</th></tr></thead><tbody>` +
+  A.ranking_analysis.occupation_tier_comparison.map(r => {{
+    const firstV = r.tier_rates[firstTierKey] || 0;
+    const lastV = r.tier_rates[lastTierKey] || 0;
+    const diff = firstV - lastV;
+    const trendTxt = diff >= 0.08 ? `↑ 前段愛帶 (+${{pct(diff)}})` : diff <= -0.08 ? `↓ 後段較多 (${{pct(diff)}})` : `— 差不多 (${{diff>=0?'+':''}}${{pct(diff)}})`;
+    const trendCls = diff >= 0.08 ? 'pos' : diff <= -0.08 ? 'neg' : 'sub';
+    return `<tr><td><span class="lbl-flex">${{ico(r.occupation)}}${{esc(r.occupation)}}</span></td><td>${{pct(r.team_presence_rate)}}</td>${{tiers.map(t => {{
+      const v = r.tier_rates[t.tier] || 0;
+      const alpha = (0.08 + v * 0.65).toFixed(2);
+      return `<td class="heat-cell" style="background:rgba(56,189,248,${{alpha}})">${{pct(v)}}</td>`;
+    }}).join('')}}<td class="${{trendCls}}">${{trendTxt}}</td><td><b>#${{r.avg_rank}}</b></td></tr>`;
+  }}).join('') + '</tbody>';
 
 document.getElementById('dpStructTable').innerHTML =
   '<thead><tr><th>雙開組數配置</th><th>隊伍數</th><th>佔比</th><th>平均排名</th><th>中位排名</th><th>最高排名</th><th>Top 10 隊數</th></tr></thead><tbody>' +
