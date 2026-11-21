@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 import json
 import sys
 from pathlib import Path
@@ -12,6 +13,11 @@ from src.export.excel_writer import write_excel_report
 from src.export.html_report import generate_html_report
 from src.export.share_cards import generate_share_cards
 from src.export.text_summary import generate_text_summary
+
+
+def default_report_title() -> str:
+    """Return today's MMDD + 女武神職業環境分析報告."""
+    return f"{datetime.now().strftime('%m%d')}女武神職業環境分析報告"
 
 
 def _collect_icon_paths(run_path: Path) -> dict[str, str]:
@@ -32,9 +38,11 @@ def _collect_icon_paths(run_path: Path) -> dict[str, str]:
 
 def run_phase4_5(
     run_dir: str | Path,
-    report_title: str = "排位賽職業環境分析報告",
+    report_title: str | None = None,
 ) -> dict[str, Any]:
     """Run statistical analysis and export Excel + full shareable package."""
+    if not report_title or report_title == "排位賽職業環境分析報告":
+        report_title = default_report_title()
     run_path = Path(run_dir)
     teams_path = run_path / "phase3_icons" / "teams_with_icons.json"
     if not teams_path.is_file():
@@ -86,7 +94,7 @@ def main() -> None:
     if len(sys.argv) < 2:
         print("Usage: python -m src.pipeline_phase4_5 <existing_run_dir> [report_title]")
         sys.exit(1)
-    title = sys.argv[2] if len(sys.argv) >= 3 else "排位賽職業環境分析報告"
+    title = sys.argv[2] if len(sys.argv) >= 3 else default_report_title()
     res = run_phase4_5(sys.argv[1], report_title=title)
     print(json.dumps({k: v for k, v in res.items() if k != "summary_text"}, ensure_ascii=False, indent=2))
 

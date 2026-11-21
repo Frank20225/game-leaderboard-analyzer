@@ -152,7 +152,7 @@ class TeamsUpdateRequest(BaseModel):
 
 
 class ExportRequest(BaseModel):
-    report_title: str = "排位賽職業環境分析報告"
+    report_title: str = ""
 
 
 class PublishPagesRequest(BaseModel):

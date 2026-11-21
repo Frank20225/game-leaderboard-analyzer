@@ -5,6 +5,17 @@ let currentState = null;
 
 const $ = (id) => document.getElementById(id);
 
+function getDefaultReportTitle() {
+  const now = new Date();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  return `${mm}${dd}女武神職業環境分析報告`;
+}
+
+if ($("reportTitleInput") && !$("reportTitleInput").value) {
+  $("reportTitleInput").value = getDefaultReportTitle();
+}
+
 function showNotice(msg, kind = "") {
   const el = $("globalNotice");
   el.textContent = msg;
@@ -446,7 +457,7 @@ $("btnRunExport").onclick = async () => {
   if (!currentRunId) return showNotice("請先完成 Phase 3", "warn");
   try {
     showNotice("⏳ 正在產生 7 頁 Excel、單檔互動報告與 PNG 圖卡...", "warn");
-    const title = $("reportTitleInput").value.trim() || "排位賽職業環境分析報告";
+    const title = $("reportTitleInput").value.trim() || getDefaultReportTitle();
     await api(`/api/runs/${encodeURIComponent(currentRunId)}/export`, {
       method: "POST",
       body: JSON.stringify({ report_title: title }),
