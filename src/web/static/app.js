@@ -520,9 +520,33 @@ $("btnRunTrend").onclick = async () => {
     $("trendCardsPreview").innerHTML = ["01_meta_trend_lines.png", "02_meta_movers_delta.png"]
       .map((c) => `<div><img class="preview" src="/api/trends/${encodeURIComponent(tid)}/files/cards/${c}?t=${Date.now()}" alt="${c}"></div>`)
       .join("");
+    const sys = t.roster_strength_trends || [];
+    if ($("trendSystemsTable")) {
+      $("trendSystemsTable").innerHTML =
+        "<thead><tr><th>陣容體系</th><th>強度判定</th><th>當下隊數</th><th>前期→當下均排</th><th>均排爬升</th><th>爬升隊伍比例</th><th>Top30席次變化</th><th>當下代表強隊</th></tr></thead><tbody>" +
+        sys
+          .map(
+            (s) =>
+              `<tr><td><b>${s.system_name}</b></td><td><span class="badge ${s.avg_rank_gain >= 2 ? "ok" : s.avg_rank_gain <= -2 ? "flagged" : "edited"}">${s.verdict}</span></td><td>${s.latest_team_count}隊</td><td>#${s.first_avg_rank} → <b>#${s.latest_avg_rank}</b></td><td><b>${s.avg_rank_gain >= 0 ? "+" : ""}${s.avg_rank_gain} 名</b></td><td><b>${Math.round(s.climber_rate * 100)}%</b> (${s.climber_count}隊升)</td><td>${s.top30_series[0]} → ${s.top30_series[s.top30_series.length - 1]} (${s.top30_delta >= 0 ? "+" : ""}${s.top30_delta})</td><td class="muted">${s.sample_teams}</td></tr>`
+          )
+          .join("") +
+        "</tbody>";
+    }
+    const st = (t.league_standings || []).slice(0, 50);
+    if ($("trendStandingsTable")) {
+      $("trendStandingsTable").innerHTML =
+        "<thead><tr><th>當下排名</th><th>本期升降</th><th>戰隊名稱</th><th>當下積分 (本期Δ)</th><th>前期排名</th><th>陣容體系</th><th>當下 8 人名單</th><th>副角色切換</th></tr></thead><tbody>" +
+        st
+          .map(
+            (r) =>
+              `<tr><td><b>#${r.latest_rank}</b></td><td><span class="badge ${r.recent_rank_change > 0 ? "ok" : r.recent_rank_change < 0 ? "flagged" : "edited"}">${r.status}</span></td><td><b>${r.team_name}</b></td><td><b>${r.latest_score ?? "-"}</b> ${r.recent_score_delta !== null && r.recent_score_delta !== undefined ? `(${r.recent_score_delta >= 0 ? "+" : ""}${r.recent_score_delta})` : ""}</td><td class="muted">${r.prev_rank ? "#" + r.prev_rank : "-"}</td><td>${r.archetype_tag}</td><td class="muted">${r.latest_roster}</td><td class="muted">${r.roster_change_notes}</td></tr>`
+          )
+          .join("") +
+        "</tbody>";
+    }
     const ch = t.roster_changes || [];
     $("trendChangesTable").innerHTML =
-      "<thead><tr><th>戰隊</th><th>區間</th><th>換角明細</th><th>排名變化</th><th>換角後 8 人名單</th></tr></thead><tbody>" +
+      "<thead><tr><th>戰隊</th><th>區間</th><th>切換副角色明細</th><th>排名變化</th><th>換角後 8 人名單</th></tr></thead><tbody>" +
       (ch.length
         ? ch
             .map(
@@ -530,9 +554,9 @@ $("btnRunTrend").onclick = async () => {
                 `<tr><td><b>${c.team_name}</b></td><td>${c.from_period}→${c.to_period}</td><td><code>${c.diff_summary}</code></td><td>#${c.rank_before} → #${c.rank_after} (${c.rank_delta >= 0 ? "+" : ""}${c.rank_delta})</td><td class="muted">${c.roster_after}</td></tr>`
             )
             .join("")
-        : '<tr><td colspan="5" class="muted">本次對比尚未偵測到同隊換角</td></tr>') +
+        : '<tr><td colspan="5" class="muted">本次對比全數戰隊皆維持固定陣容</td></tr>') +
       "</tbody>";
-    showNotice(`✅ 多期趨勢分析完成！共追蹤 ${t.summary_counts.tracked_teams} 隊、偵測到 ${t.summary_counts.roster_change_events} 次換角。`, "ok");
+    showNotice(`✅ 聯賽趨勢分析完成！共追蹤 ${t.summary_counts.tracked_teams} 隊（原陣容直衝 ${t.summary_counts.locked_roster_teams || 0} 隊、切換副角色 ${t.summary_counts.roster_change_events} 隊）。`, "ok");
   } catch (e) {
     showNotice("多期趨勢分析失敗：" + e.message, "err");
   }

@@ -165,26 +165,30 @@
     <!-- STEP 6: MULTI-RUN TRENDS -->
     <section id="step-6" class="section">
       <div class="card">
-        <h2>📈 Step 6：多期排名跨期趨勢對比（Meta 演變 ＋ 戰隊爬升 ＋ 換角偵測）</h2>
-        <p class="muted">隨著排位賽進行，勾選 2 個以上已完成 Phase 3 的分析紀錄並依時間先後填入期別標籤（例如 <code>11/16 Day1</code>、<code>11/21 Day5</code>），系統會自動追蹤職業漲跌與強隊中途換角！</p>
+        <h2>📈 Step 6：聯賽跨期積分榜 ＆ 陣容體系強度趨勢（專為「鎖定成員／每人限創2角」設計）</h2>
+        <p class="muted">在無法換人、每人最多 2 隻角色的賽制下，全場職業總數變化極小；系統會以<b>「聯賽當下最新排名 (#1~#200)」</b>為主軸，追蹤<b>八大陣容體系的平均排名爬升、爬升勝率動能、Top 30 席次消長</b>與<b>隊員切換副角色（二號角）</b>的實戰效益！</p>
         <div class="row" style="margin-bottom:12px">
-          <input type="text" id="trendTitleInput" class="wide" value="排位賽多期環境與戰隊趨勢對比" placeholder="輸入跨期趨勢報告標題">
-          <button class="btn" id="btnRunTrend">📈 產生多期趨勢分析</button>
+          <input type="text" id="trendTitleInput" class="wide" value="女武神聯賽跨期積分榜與陣容強度趨勢" placeholder="輸入跨期趨勢報告標題">
+          <button class="btn" id="btnRunTrend">📈 產生聯賽積分榜 ＆ 陣容強度趨勢</button>
         </div>
         <div id="trendRunsList" style="margin-bottom:14px"></div>
       </div>
 
       <div class="card" id="trendResultCard" style="display:none">
-        <h2>多期趨勢分析結果</h2>
+        <h2>聯賽跨期積分榜與陣容強度分析結果</h2>
         <div class="row" style="margin-bottom:12px">
-          <a class="btn" id="dlTrendExcel" target="_blank">📊 下載跨期趨勢 Excel (4頁)</a>
-          <a class="btn secondary" id="dlTrendHtml" target="_blank">🌐 開啟跨期互動網頁 (trend_report.html)</a>
-          <button class="btn secondary" id="btnCopyTrendSummary">📋 複製趨勢戰報</button>
+          <a class="btn" id="dlTrendExcel" target="_blank">📊 下載聯賽跨期趨勢 Excel (6頁完整版)</a>
+          <a class="btn secondary" id="dlTrendHtml" target="_blank">🌐 開啟互動式聯賽積分榜網頁 (trend_report.html)</a>
+          <button class="btn secondary" id="btnCopyTrendSummary">📋 複製聯賽趨勢戰報</button>
         </div>
         <textarea id="trendSummaryBox" class="summary-box" readonly></textarea>
-        <h3>🖼️ 跨期趨勢統計圖卡</h3>
+        <h3>🖼️ 八大陣容體系跨期強度演變 ＆ 14 職業實戰動能圖卡</h3>
         <div class="grid-2" id="trendCardsPreview"></div>
-        <h3>🔄 偵測到的戰隊中途換角紀錄</h3>
+        <h3>⚔️ 八大陣容體系跨期強度趨勢（不靠換角也能看出的版本答案）</h3>
+        <div class="table-scroll" style="margin-bottom:16px"><table id="trendSystemsTable"></table></div>
+        <h3>🏆 聯賽當下積分排行榜（以當下最新排名為主軸，前 50 強預覽；完整 200 隊請點上方互動網頁）</h3>
+        <div class="table-scroll" style="margin-bottom:16px"><table id="trendStandingsTable"></table></div>
+        <h3>🔄 偵測到的成員副角色（二號角）切換紀錄</h3>
         <div class="table-scroll"><table id="trendChangesTable"></table></div>
       </div>
     </section>

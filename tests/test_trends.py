@@ -44,7 +44,16 @@ def test_multi_run_trend_and_roster_diff(tmp_path: Path) -> None:
     # Full export package check
     manifest = export_trend_package(trend, tmp_path / "trend_out")
     wb = openpyxl.load_workbook(manifest["excel_path"])
-    assert wb.sheetnames == ["Meta Shift", "Double-Pick Shift", "Team Trajectory", "Roster Changes"]
+    assert wb.sheetnames == [
+        "League Standings",
+        "Lineup Strength",
+        "Meta Shift",
+        "Double-Pick Shift",
+        "Team Trajectory",
+        "Roster Changes",
+    ]
+    assert [t["latest_rank"] for t in trend["league_standings"]] == [1, 2, 3]
+    assert len(trend["roster_strength_trends"]) >= 1
     assert Path(manifest["html_path"]).is_file()
     assert len(manifest["card_paths"]) == 2
     assert all(Path(p).is_file() for p in manifest["card_paths"])
