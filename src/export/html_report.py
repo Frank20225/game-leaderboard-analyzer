@@ -237,9 +237,9 @@ def generate_html_report(
       <p class="sub">依據本場 200 隊大數據（0/1/2 隻平均名次、Synergy Lift 協同矩陣與 BO5 鎖人規則），即時評估你的 8 人名單強度、抓出互斥陷阱，並比對排行榜上最相似的實戰強隊！</p>
       <div class="filter-bar" style="margin-top:10px">
         <span class="sub">一鍵套用大數據推薦陣容：</span>
-        <button class="preset-btn" data-preset="法師,法師,補師,詩人,賢者,騎士,德魯伊,武僧">🔥 推薦一：雙法核彈陣（雙開均排 #57.6）</button>
-        <button class="preset-btn" data-preset="補師,法師,詩人,賢者,騎士,德魯伊,武僧,刺客">👑 推薦二：8 異職全能冠軍陣（Top 10 主流）</button>
-        <button class="preset-btn" data-preset="詩人,詩人,補師,法師,賢者,騎士,德魯伊,武僧">🎵 推薦三：雙詩人消耗陣（雙開均排 #87.8）</button>
+        <button class="preset-btn" data-preset="補師,法師,詩人,賢者,德魯伊,法師,流氓,武僧">🔥 推薦一：雙法跨局控場陣（前5預設先發＋後3替補輪轉，均排 #57.6）</button>
+        <button class="preset-btn" data-preset="補師,法師,詩人,賢者,德魯伊,流氓,騎士,武僧">👑 推薦二：8 異職全能冠軍陣（5v5德魯伊AOE＋1v1賢/流/騎/武）</button>
+        <button class="preset-btn" data-preset="補師,法師,詩人,賢者,德魯伊,詩人,流氓,武僧">🎵 推薦三：雙詩人雙流派輪轉陣（分攤3v3/2v2或一輔一輸出，均排 #87.8）</button>
       </div>
       <div class="builder-grid" id="builderSlots"></div>
       <div id="builderResult"></div>
@@ -383,110 +383,223 @@ document.getElementById('tripleTable').innerHTML =
   '<thead><tr><th>三職業組合</th><th>隊數</th><th>佔比</th><th>平均排名</th><th>Top 10 佔比</th><th>代表戰隊</th></tr></thead><tbody>' +
   (A.triple_combinations || []).slice(0, 35).map(r => `<tr><td><b>${{esc(r.combination)}}</b></td><td>${{r.team_count}}</td><td>${{pct(r.team_rate)}}</td><td>#${{r.avg_rank}}</td><td>${{pct(r.top10_rate)}}</td><td class="sub">${{esc(r.sample_teams)}}</td></tr>`).join('') + '</tbody>';
 
-// BO5 Lineup Predictor & Opponent Scouting Card Generator
+// BO5 Lineup Predictor & Opponent Scouting Card Generator (Aligned with Verified Valkyrie Cup Meta)
 function buildScoutCardHtml(team) {{
-  const occs = (team.occupations || []).filter(Boolean);
+  const rawOccs = (team.occupations || []).filter(Boolean);
+  // Create 8 indexed player slots preserving left-to-right order (Slot 1..5 = default 5v5 starters, Slot 6..8 = bench)
+  const players = rawOccs.map((occ, i) => ({{ id: i + 1, occ, isDefaultStarter: i < 5 }}));
   const counts = {{}};
-  occs.forEach(o => counts[o] = (counts[o] || 0) + 1);
+  rawOccs.forEach(o => counts[o] = (counts[o] || 0) + 1);
   const doubles = Object.keys(counts).filter(o => counts[o] >= 2);
 
-  // Predict G2 (1v1): Rule says G2 player is locked out of G3 (3v3) & G4 (2v2).
-  // Best G2 choices: 2nd copy of a double-picked combat/control class, or solo duelist (武僧/刺客/流氓/騎士/德魯伊)
-  const duelistPriority = ['武僧', '刺客', '流氓', '騎士', '法師', '德魯伊', '煉金', '鐵匠', '詩人', '十字'];
-  let g2Primary = null;
+  // --- 1. Predict G2 (1v1 Solo Duel) FIRST because G2 player is locked out of G3 (3v3) & G4 (2v2) ---
+  // Verified 1v1 frequency order: 賢者 (1st) > 流氓 (2nd) > 騎士 (3rd) > 武僧 (4th)
+  const g2Priority = ['賢者', '流氓', '騎士', '武僧', '刺客', '德魯伊', '詩人', '舞孃', '煉金', '十字', '鐵匠', '獵人', '法師'];
+  let g2Candidates = [];
+  for (const candOcc of g2Priority) {{
+    const matchingPlayers = players.filter(p => p.occ === candOcc);
+    if (matchingPlayers.length > 0) {{
+      // If a team has 2 copies of this class, prefer sending the bench copy (Slot 6..8) so the starter copy can play G1->G4
+      const chosen = matchingPlayers[matchingPlayers.length - 1];
+      g2Candidates.push(chosen);
+    }}
+  }}
+  const g2Player = g2Candidates[0] || players[0] || {{ id: 1, occ: '未知' }};
+  const g2AltPlayer = g2Candidates.find(p => p.occ !== g2Player.occ) || null;
   let g2Reason = '';
-  for (const d of doubles) {{
-    if (['法師', '流氓', '詩人', '騎士', '煉金', '武僧', '刺客', '德魯伊'].includes(d)) {{
-      g2Primary = d;
-      g2Reason = `該隊雙開【${{d}}×2】，派第 2 隻打 G2 單挑被鎖定後，G3/G4 仍保有第 1 隻【${{d}}】不斷檔！`;
+  if (['賢者', '流氓', '騎士', '武僧'].includes(g2Player.occ)) {{
+    const rankIdx = ['賢者', '流氓', '騎士', '武僧'].indexOf(g2Player.occ) + 1;
+    g2Reason = `依實戰 1v1 出場率（賢者＞流氓＞騎士＞武僧），首選第 ${{rankIdx}} 順位單挑強職【${{g2Player.occ}}】` +
+      (counts[g2Player.occ] >= 2 ? `（且該隊有雙開 ${{g2Player.occ}}×2，鎖掉 1 隻後 G3/G4 仍有另 1 隻可用）` : `（出戰後將被禁選，無法打 G3 3v3 與 G4 2v2）`) +
+      (g2AltPlayer && ['賢者', '流氓', '騎士', '武僧'].includes(g2AltPlayer.occ) ? `；次選防備：【${{g2AltPlayer.occ}}】。` : '。');
+  }} else {{
+    g2Reason = `該隊未攜帶賢/流/騎/武四大單挑職，預計派出【${{g2Player.occ}}】打 G2 1v1。`;
+  }}
+
+  // --- 2. Predict G1 & G5 (5v5 Teamfight) ---
+  // Verified 5v5 rules:
+  // - Slots 1..5 are the in-game default starters, but teams rarely field 2 法師 or 2 補師 in the same 5v5
+  //   (法師×2 overlaps control and loses to 德魯伊 in pure AOE; 補師×2 splits 1 to G1->G4 and 1 to G3; 詩人×2 rarely co-starts unless 1 supp + 1 DPS).
+  // - Priority in 5v5: 補師 (1) > 法師 (1, control) > 詩人/舞孃 (support) > 德魯伊 (top 5v5 AOE + control) / 賢者 / 流氓 / 騎士 / 武僧 / 刺客 / 煉金 (coat protection).
+  const g1Priority = ['補師', '法師', '詩人', '德魯伊', '賢者', '舞孃', '流氓', '騎士', '武僧', '刺客', '煉金', '十字', '鐵匠', '獵人'];
+  const g1Players = [];
+  const g1OccCounts = {{}};
+
+  // Start from default starters (Slot 1..5) that don't violate single-copy-in-5v5 for 補師/法師/詩人
+  for (const p of players.filter(x => x.isDefaultStarter)) {{
+    const cap = ['補師', '法師', '詩人'].includes(p.occ) ? 1 : 2;
+    if ((g1OccCounts[p.occ] || 0) < cap && g1Players.length < 5) {{
+      g1Players.push(p);
+      g1OccCounts[p.occ] = (g1OccCounts[p.occ] || 0) + 1;
+    }}
+  }}
+  // Ensure 補師 and 法師 are swapped in from bench (Slot 6..8) if they were hidden on the bench!
+  for (const mustOcc of ['補師', '法師']) {{
+    if (!g1OccCounts[mustOcc] && counts[mustOcc]) {{
+      const benchMust = players.find(p => p.occ === mustOcc && !g1Players.includes(p));
+      if (benchMust) {{
+        if (g1Players.length >= 5) {{
+          const dropped = g1Players.pop();
+          g1OccCounts[dropped.occ]--;
+        }}
+        g1Players.unshift(benchMust);
+        g1OccCounts[mustOcc] = 1;
+      }}
+    }}
+  }}
+  // Fill any remaining slots up to 5 from bench using 5v5 priority (preferring single copy first)
+  const benchCand = players
+    .filter(p => !g1Players.includes(p))
+    .sort((a, b) => g1Priority.indexOf(a.occ) - g1Priority.indexOf(b.occ));
+  for (const p of benchCand) {{
+    if (g1Players.length < 5 && !(g1OccCounts[p.occ] || 0)) {{
+      g1Players.push(p);
+      g1OccCounts[p.occ] = 1;
+    }}
+  }}
+  for (const p of benchCand) {{
+    if (g1Players.length < 5 && !g1Players.includes(p)) {{
+      g1Players.push(p);
+      g1OccCounts[p.occ] = (g1OccCounts[p.occ] || 0) + 1;
+    }}
+  }}
+
+  // --- 3. Predict G3 (3v3 Small Teamfight — excludes G2 player!) ---
+  // Verified 3v3 formula:
+  // - Seat 1: MUST be 補師 (德魯伊 does NOT replace 補師). If team has 補師×2, use the 2nd 補師 (who did NOT play G1) so G1's 補師 locks into G4 Seat 1!
+  // - Seat 2 (Support / Control): 詩人 > 舞孃 > 法師 > 煉金. (If team has 2 copies, prefer the copy that did NOT play G1 so G1's copy stays eligible for G4 Seat 1!)
+  // - Seat 3 (Main DPS): 詩人(輸出流)/舞孃(輸出流) > 賢者 > 流氓 > 騎士/刺客/武僧 > 德魯伊.
+  const eligibleG3 = players.filter(p => p.id !== g2Player.id);
+  const g3Players = [];
+
+  // G3 Seat 1: 補師
+  const healers = eligibleG3.filter(p => p.occ === '補師');
+  if (healers.length >= 2) {{
+    // Pick the healer who did NOT play G1 so the G1 healer is saved for G4 Seat 1!
+    const nonG1Healer = healers.find(h => !g1Players.includes(h)) || healers[1];
+    g3Players.push(nonG1Healer);
+  }} else if (healers.length === 1) {{
+    g3Players.push(healers[0]);
+  }}
+
+  // G3 Seat 2: Support / Control (詩人 > 舞孃 > 法師 > 煉金)
+  const suppOrder = ['詩人', '舞孃', '法師', '煉金', '德魯伊', '賢者'];
+  for (const sOcc of suppOrder) {{
+    const cands = eligibleG3.filter(p => p.occ === sOcc && !g3Players.includes(p));
+    if (cands.length > 0) {{
+      // If there's a copy that didn't play G1 (e.g. 2nd 詩人 or 2nd 法師), use it in G3 so the G1 copy locks into G4 Seat 1!
+      const preferNonG1 = cands.find(c => !g1Players.includes(c)) || cands[0];
+      g3Players.push(preferNonG1);
       break;
     }}
   }}
-  if (!g2Primary) {{
-    g2Primary = duelistPriority.find(c => counts[c]) || occs[0] || '未知';
-    g2Reason = `該隊無雙開打手，極高機率派出單挑強勢職【${{g2Primary}}】搶 G2 單挑局（注意其 G3/G4 將少此職）。`;
-  }}
 
-  // Remaining 7 players after G2 player is locked out of G3/G4
-  const rem7 = [...occs];
-  const g2Idx = rem7.indexOf(g2Primary);
-  if (g2Idx >= 0) rem7.splice(g2Idx, 1);
-
-  // Predict G1/G5 5v5 Main Lineup
-  const g1Order = ['補師', '騎士', '十字', '詩人', '賢者', '法師', '德魯伊', '武僧', '刺客', '流氓', '煉金', '舞孃', '鐵匠', '獵人'];
-  const g1Pool = [...occs].sort((a, b) => g1Order.indexOf(a) - g1Order.indexOf(b));
-  const g1Five = [];
-  const usedG1Counts = {{}};
-  // First pass: pick 5 distinct core roles if available
-  for (const c of g1Pool) {{
-    if (g1Five.length < 5 && !usedG1Counts[c]) {{
-      g1Five.push(c);
-      usedG1Counts[c] = 1;
+  // G3 Seat 3: Main DPS (詩人/舞孃[輸出流] > 賢者 > 流氓 > 騎士 > 刺客 > 武僧 > 德魯伊)
+  const dpsOrder = ['詩人', '舞孃', '賢者', '流氓', '騎士', '刺客', '武僧', '德魯伊', '法師', '煉金', '鐵匠', '十字', '獵人'];
+  for (const dOcc of dpsOrder) {{
+    const cands = eligibleG3.filter(p => p.occ === dOcc && !g3Players.includes(p));
+    if (cands.length > 0) {{
+      // Avoid duplicate class inside the same 3v3 trio unless necessary
+      if (!g3Players.some(x => x.occ === dOcc)) {{
+        g3Players.push(cands[0]);
+        break;
+      }}
     }}
   }}
-  for (const c of g1Pool) {{
-    if (g1Five.length < 5 && (usedG1Counts[c] || 0) < counts[c]) {{
-      g1Five.push(c);
-      usedG1Counts[c] = (usedG1Counts[c] || 0) + 1;
-    }}
+  for (const p of eligibleG3) {{
+    if (g3Players.length < 3 && !g3Players.includes(p)) g3Players.push(p);
   }}
 
-  // Predict G3 3v3 Trio from rem7 (1 sustain + 1 front/control + 1 burst)
-  const g3Order = ['補師', '德魯伊', '騎士', '武僧', '法師', '詩人', '賢者', '流氓', '刺客', '煉金', '舞孃', '十字', '鐵匠'];
-  const g3Three = [];
-  const rem7Copy = [...rem7].sort((a, b) => g3Order.indexOf(a) - g3Order.indexOf(b));
-  for (const c of rem7Copy) {{
-    if (g3Three.length < 3 && !g3Three.includes(c)) g3Three.push(c);
-  }}
-  while (g3Three.length < 3 && rem7Copy.length > g3Three.length) {{
-    g3Three.push(rem7Copy[g3Three.length]);
+  // --- 4. Predict G4 (2v2 Duo — Strict Lock & Opponent Healer-Ban Logic!) ---
+  // Rule:
+  // - Seat 1 MUST be someone who played G1 (5v5) and did NOT play G2 (1v1) or G3 (3v3).
+  // - Seat 2 MUST be picked from G3 (3v3) AFTER the opponent bans 1 G3 player (Opponent almost 100% bans G3's 補師!).
+  const g4Seat1Pool = g1Players.filter(p => p.id !== g2Player.id && !g3Players.includes(p));
+  const g3Banned = g3Players.find(p => p.occ === '補師') || g3Players[0];
+  const g4Seat2Pool = g3Players.filter(p => p !== g3Banned);
+
+  // Pick optimal (1 Support/Control + 1 DPS) pair from Seat 1 Pool x Seat 2 Pool
+  const g4PrioritySeat1 = ['補師', '詩人', '舞孃', '法師', '賢者', '流氓', '騎士', '武僧', '刺客', '德魯伊', '煉金'];
+  const sortedSeat1 = [...g4Seat1Pool].sort((a, b) => g4PrioritySeat1.indexOf(a.occ) - g4PrioritySeat1.indexOf(b.occ));
+  const g4Seat1 = sortedSeat1[0] || eligibleG3.find(p => !g3Players.includes(p)) || players[0];
+
+  // If Seat 1 is a Support/Healer/Control (補師/法師/煉金), prefer a pure DPS from G3 for Seat 2; if Seat 1 is a DPS, prefer G3's Support (詩人/舞孃/法師) for Seat 2!
+  const seat1IsSupp = ['補師', '法師', '煉金'].includes(g4Seat1.occ);
+  let g4Seat2 = g4Seat2Pool[0] || g3Players[0];
+  if (g4Seat2Pool.length >= 2) {{
+    g4Seat2 = seat1IsSupp ? g4Seat2Pool[g4Seat2Pool.length - 1] : g4Seat2Pool[0];
   }}
 
-  // Predict G4 2v2 Duo: Seat 1 = G1 player not in G2/G3; Seat 2 = 1 player from G3
-  const g4Seat1Pool = g1Five.filter(c => !g3Three.includes(c) && c !== g2Primary);
-  const g4Seat1 = g4Seat1Pool[0] || rem7.find(c => !g3Three.includes(c)) || rem7[0] || '搖擺位';
-  const g4Seat2 = g3Three.find(c => c !== '補師') || g3Three[0] || '主力位';
-
-  // Counter Tips
+  // --- 5. Verified Tactical Notes & Counter Tips ---
   const tips = [];
-  if ((counts['法師'] || 0) >= 2) tips.push('🔥 <b>雙法核彈預警</b>：該隊帶滿 2 隻法師，5v5 團戰範圍爆發極高，我方務必扣好賢者領域/魔解並派刺客或武僧優先貼臉斷招。');
-  if ((counts['詩人'] || 0) >= 2) tips.push('🎵 <b>雙詩人高頻控場/加速</b>：切忌與其打慢節奏消耗戰，建議開場直接集火秒殺其無位移脆皮。');
-  if ((counts['補師'] || 0) === 1 && !(counts['德魯伊'] || 0)) tips.push('💉 <b>單奶無德魯伊弱點</b>：該隊僅 1 隻補師且無德魯伊副奶，5v5/3v3 只要強行集火補師逼出 3 次復活上限，對方續航即刻瓦解。');
-  if (!(counts['賢者'] || 0)) tips.push('⚡ <b>無賢者空窗</b>：對手名單完全沒有賢者，缺乏地領與魔法反制，我方法師與控場可大膽鋪場壓制。');
-  if ((counts['武僧'] || 0) || (counts['刺客'] || 0)) tips.push(`🗡️ <b>後排防切入警告</b>：對手擁有【${{['武僧','刺客'].filter(c=>counts[c]).join('＋')}}】，我方補師與法師需隨時注意霸邪/安全壁保護。`);
-  if (!tips.length) tips.push('⚖️ <b>標準均衡陣容</b>：對手無明顯極端偏科，建議於 G2 1v1 與 G4 2v2 針對其單挑鎖人空窗期搶分。');
+  const default5Str = players.slice(0, 5).map(p => p.occ).join(' / ');
+  const bench3Str = players.slice(5, 8).map(p => p.occ).join(' / ');
+  tips.push(`📋 <b>遊戲內預設席次</b>：前 5 格預設先發【<b>${{esc(default5Str)}}</b>】｜後 3 格替補【<b>${{esc(bench3Str || '無')}}</b>】（開賽前可替換）。`);
 
-  const renderPills = arr => arr.map(o => `<span class="pill">${{ico(o)}}<span>${{esc(o)}}</span></span>`).join('');
+  if ((counts['補師'] || 0) >= 2) {{
+    tips.push('💉 <b>雙補師跨局保底陣 (補師×2)</b>：該隊不會同場上雙補，而是讓「補師A 打 G1 5v5 後休息直鎖 G4 2v2 席次1」、「補師B 打 G3 3v3」——即使我方在 G4 Ban 掉 G3 的補師，對手 G4 (2v2) 依然保底有補師！');
+  }} else if ((counts['補師'] || 0) === 1) {{
+    tips.push('🚫 <b>單補師 G4 必無補弱點</b>：對手僅 1 隻補師（必打 G1 5v5 與 G3 3v3），進入 G4 (2v2) 時我方<b>務必 Ban 掉其 G3 的補師</b>，即可逼對手在 G4 打「無補師局（1輔/控＋1輸出）」！');
+  }}
+  if ((counts['法師'] || 0) >= 2) {{
+    tips.push('❄️ <b>雙法師跨局控場輪轉 (法師×2)</b>：兩隻法師同場機率極低（同場控制重疊且純 AOE 不如德魯伊），實戰是將兩隻法師拆給 G1→G4 與 G3，達成 5v5 / 3v3 / 2v2 全場次控場不斷檔。');
+  }}
+  if ((counts['詩人'] || 0) >= 2) {{
+    tips.push('🎵 <b>雙詩人靈活流派切換 (詩人×2)</b>：多數拆給 G3 與 G4 確保每局皆有頂尖輔助；若同場出戰則必定為「1 輔助流 ＋ 1 輸出流」。');
+  }}
+  if (counts['德魯伊']) {{
+    tips.push('🌿 <b>德魯伊 5v5 大範圍壓制</b>：德魯伊的大範圍 AOE 傷害高於法師且具控場，在 G1 / G5 (5v5) 團戰最具威脅，我方需避免扎堆吃滿傷害。');
+  }}
+  if (counts['武僧']) {{
+    tips.push('🥊 <b>武僧阿修羅減員威脅</b>：對手擁有武僧，核心戰術是用阿修羅一拳秒殺讓我方瞬間減員（亦可能於 G2 1v1 或 G3/G4 登場），需高度注意關鍵回合保人。');
+  }}
+  if (counts['煉金']) {{
+    tips.push('⚗️ <b>煉金護貝＆毀裝干擾</b>：對手帶有煉金，能為隊友上護貝免疫裝備破壞，並以單體攻擊破壞我方裝備（輔助位出場序：詩人＞舞孃＞法師＞煉金）。');
+  }}
+
+  const renderPills = (arr, roleHints = {{}}) => arr.map(p => {{
+    const o = typeof p === 'string' ? p : p.occ;
+    const hint = roleHints[o] ? `<span class="sub" style="font-size:0.72rem;margin-left:2px">(${{esc(roleHints[o])}})</span>` : '';
+    return `<span class="pill">${{ico(o)}}<span>${{esc(o)}}</span>${{hint}}</span>`;
+  }}).join('');
+
+  // Annotate 詩人 / 舞孃 / 法師 roles in G3 & G4
+  const g3Hints = {{ '補師': '必帶純輔' }};
+  if (g3Players[1]) g3Hints[g3Players[1].occ] = g3Players[1].occ === '法師' ? '控場' : g3Players[1].occ === '煉金' ? '護貝/毀裝' : '輔助流';
+  if (g3Players[2]) g3Hints[g3Players[2].occ] = ['詩人', '舞孃'].includes(g3Players[2].occ) ? '可切輸出流' : '主力輸出';
 
   return `
   <div class="scout-box">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-      <div><b>🎯 #${{team.rank}} ${{esc(team.team_name)}} — 實戰情報卡 ＆ BO5 五局拆陣推演</b></div>
-      <span class="sub">雙開核心：${{doubles.length ? doubles.map(d => `<b>${{d}}×2</b>`).join('、') : '無（8 異職）'}}</span>
+      <div><b>🎯 #${{team.rank}} ${{esc(team.team_name)}} — 實戰情報卡 ＆ BO5 五局出場推演</b></div>
+      <span class="sub">雙開輪轉核心：${{doubles.length ? doubles.map(d => `<b>${{d}}×2</b>`).join('、') : '無（8 異職）'}}</span>
     </div>
     <div style="margin-top:8px;font-size:0.85rem;line-height:1.65">
       ${{tips.map(t => `<div>• ${{t}}</div>`).join('')}}
     </div>
     <div class="scout-grid">
       <div class="bo5-card">
-        <h4>G1 &amp; G5｜5v5 主力團戰預測</h4>
-        <div>${{renderPills(g1Five)}}</div>
-        <div class="sub" style="font-size:0.78rem;margin-top:4px">優先湊齊主坦＋主補＋控場＋雙核心輸出</div>
+        <h4>G1 &amp; G5｜5v5 團戰預測</h4>
+        <div>${{renderPills(g1Players, {{ '補師': '純輔', '法師': '控場', '德魯伊': 'AOE+控' }})}}</div>
+        <div class="sub" style="font-size:0.78rem;margin-top:4px">優先級：補師＞法師(控)＞詩/舞(輔)＋德魯伊(AOE)/單體爆發；雙開職原則不同場重疊</div>
       </div>
       <div class="bo5-card">
         <h4>G2｜1v1 單挑鎖人預測 ⚠️</h4>
-        <div>${{renderPills([g2Primary])}}</div>
+        <div>${{renderPills([g2Player])}} ${{g2AltPlayer && ['賢者','流氓','騎士','武僧'].includes(g2AltPlayer.occ) ? `<span class="sub" style="font-size:0.75rem">備案:</span> ${{renderPills([g2AltPlayer])}}` : ''}}</div>
         <div class="sub" style="font-size:0.78rem;margin-top:4px">${{esc(g2Reason)}}</div>
       </div>
       <div class="bo5-card">
-        <h4>G3｜3v3 小團戰預測（禁 G2）</h4>
-        <div>${{renderPills(g3Three)}}</div>
-        <div class="sub" style="font-size:0.78rem;margin-top:4px">扣除 G2 選手後最強 1 奶 1 前排 1 輸出鐵三角</div>
+        <h4>G3｜3v3 三人戰預測（禁 G2）</h4>
+        <div>${{renderPills(g3Players, g3Hints)}}</div>
+        <div class="sub" style="font-size:0.78rem;margin-top:4px">鐵律：1 補師＋1 輔/控(詩＞舞＞法＞煉)＋1 輸出(詩/舞＞賢＞流＞騎/刺/武＞德)</div>
       </div>
       <div class="bo5-card">
-        <h4>G4｜2v2 雙人戰預測（鎖定規則）</h4>
+        <h4>G4｜2v2 雙人戰預測（含 Ban 位）</h4>
         <div>${{renderPills([g4Seat1, g4Seat2])}}</div>
-        <div class="sub" style="font-size:0.78rem;margin-top:4px">席次1（G1未打G2/G3）：<b>${{esc(g4Seat1)}}</b>＋席次2（G3兼任）：<b>${{esc(g4Seat2)}}</b></div>
+        <div class="sub" style="font-size:0.78rem;margin-top:4px">
+          • <b>席次1（G1未打G2/G3池）</b>：${{g4Seat1Pool.map(p=>p.occ).join(' / ') || g4Seat1.occ}} → 預計派 <b>${{esc(g4Seat1.occ)}}</b><br>
+          • <b>席次2（G3排除必Ban【${{esc(g3Banned ? g3Banned.occ : '補師')}}】）</b>：從 ${{g4Seat2Pool.map(p=>p.occ).join(' / ')}} 派 <b>${{esc(g4Seat2.occ)}}</b>
+        </div>
       </div>
     </div>
   </div>`;
@@ -612,13 +725,13 @@ renderRaw();
   A.occupation_frequency.forEach(r => occStats[r.occupation] = r);
   const synMatrix = A.synergy_matrix || {{}};
 
-  const defaultRoster = ['法師', '法師', '補師', '詩人', '賢者', '騎士', '德魯伊', '武僧'];
+  const defaultRoster = ['補師', '法師', '詩人', '賢者', '德魯伊', '法師', '流氓', '武僧'];
   const slotsBox = document.getElementById('builderSlots');
 
   function renderSelects(roster) {{
     slotsBox.innerHTML = roster.map((c, idx) => `
-      <div class="slot-box">
-        <div class="sub" style="font-size:0.78rem">席次 #${{idx + 1}}</div>
+      <div class="slot-box" style="${{idx < 5 ? 'border-color:rgba(56,189,248,.45)' : ''}}">
+        <div class="sub" style="font-size:0.76rem">${{idx < 5 ? '預設先發 #' + (idx + 1) : '預設替補 #' + (idx + 1)}}</div>
         <div id="slotIco_${{idx}}" style="margin:6px 0">${{ico(c)}}</div>
         <select class="builder-sel" data-idx="${{idx}}">
           ${{allOccs.map(o => `<option value="${{esc(o)}}" ${{o === c ? 'selected' : ''}}>${{esc(o)}}</option>`).join('')}}

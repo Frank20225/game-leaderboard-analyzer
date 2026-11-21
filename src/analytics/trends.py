@@ -93,57 +93,66 @@ def _diff_rosters(prev_occs: list[str], curr_occs: list[str]) -> tuple[list[str]
 
 
 def classify_team_lineup_tags(occs: list[str]) -> tuple[str, list[str]]:
-    """Return (primary_archetype_label, all_matching_system_labels) for an 8-player roster."""
+    """Return (primary_archetype_label, all_matching_system_labels) for an 8-player roster.
+
+    Every occupation is treated independently (never merging same-colored icons), reflecting verified
+    Valkyrie Cup mechanics:
+    - 法師×2: Cross-game control rotation (1 in G1->G4, 1 in G3), NOT same-game double mage
+    - 詩人×2: Cross-game support rotation or 1 Support + 1 DPS build
+    - 德魯伊: Top 5v5 large-AOE & control threat
+    - 賢者 / 流氓 / 騎士 / 武僧: Top 4 G2 1v1 duelists & single-target burst
+    - 補師×2: Guarantees a healer in G4 (2v2) despite opponent's G3 healer ban
+    """
     counts = Counter(occs)
     dp_count = sum(1 for v in counts.values() if v >= 2)
     matched: list[str] = []
 
     if counts.get("法師", 0) >= 2:
-        matched.append("🔥 雙法師核彈體系 (法師×2)")
+        matched.append("🔥 雙法師跨局控場體系 (法師×2)")
     if counts.get("詩人", 0) >= 2:
-        matched.append("🎵 雙詩人控場體系 (詩人×2)")
+        matched.append("🎵 雙詩人雙流派輪轉體系 (詩人×2)")
     if dp_count == 0 and len(occs) >= 7:
         matched.append("👑 8異職全能體系 (0雙開)")
-    if counts.get("德魯伊", 0) >= 1 and counts.get("武僧", 0) >= 1 and counts.get("騎士", 0) >= 1:
-        matched.append("🌿 德魯伊+武僧+騎士三核體系")
-    if counts.get("刺客", 0) >= 1 and counts.get("武僧", 0) >= 1:
-        matched.append("🗡️ 刺客+武僧雙切後排體系")
-    if counts.get("補師", 0) >= 2 or counts.get("賢者", 0) >= 2:
-        matched.append("🛡️ 雙補/雙賢鐵桶防守體系")
-    if counts.get("流氓", 0) >= 2 or counts.get("煉金", 0) >= 2:
-        matched.append("⚗️ 流氓/煉金雙開干擾體系")
+    if counts.get("德魯伊", 0) >= 1:
+        matched.append("🌿 德魯伊5v5團戰AOE體系")
+    if counts.get("賢者", 0) >= 2 or counts.get("流氓", 0) >= 2:
+        matched.append("⚡ 雙賢者/雙流氓單挑分攤體系")
+    if counts.get("補師", 0) >= 2:
+        matched.append("💉 雙補師2v2保底有補體系 (補師×2)")
+    if counts.get("煉金", 0) >= 1:
+        matched.append("⚗️ 煉金護貝防拆裝體系")
     if counts.get("舞孃", 0) == 1:
-        matched.append("💃 單帶舞孃傳統體系 (舞孃×1)")
+        matched.append("💃 單帶舞孃體系 (舞孃×1)")
 
     if counts.get("法師", 0) >= 2:
-        primary = "🔥 雙法核彈陣"
+        primary = "🔥 雙法跨局控場陣"
     elif counts.get("詩人", 0) >= 2:
-        primary = "🎵 雙詩消耗陣"
+        primary = "🎵 雙詩雙流派陣"
+    elif counts.get("補師", 0) >= 2:
+        primary = "💉 雙補2v2保底陣"
     elif dp_count == 0 and len(occs) >= 7:
         primary = "👑 8異職全能陣"
-    elif counts.get("德魯伊", 0) >= 1 and counts.get("武僧", 0) >= 1:
-        primary = "🌿 德武雙核陣"
-    elif counts.get("補師", 0) >= 2 or counts.get("賢者", 0) >= 2:
-        primary = "🛡️ 雙輔鐵桶陣"
-    elif counts.get("流氓", 0) >= 2 or counts.get("煉金", 0) >= 2:
-        primary = "⚗️ 雙干擾陣"
+    elif counts.get("賢者", 0) >= 2 or counts.get("流氓", 0) >= 2:
+        primary = "⚡ 雙單挑主力陣"
+    elif counts.get("德魯伊", 0) >= 1:
+        primary = "🌿 德魯伊團戰陣"
     elif counts.get("舞孃", 0) == 1:
-        primary = "💃 單舞均衡陣"
+        primary = "💃 單舞配置陣"
     else:
-        primary = f"⚖️ {dp_count}雙開標準陣"
+        primary = f"⚖️ {dp_count}雙開輪轉陣"
 
     return primary, matched
 
 
 LINEUP_SYSTEM_CATALOG = [
-    "🔥 雙法師核彈體系 (法師×2)",
-    "🎵 雙詩人控場體系 (詩人×2)",
+    "🔥 雙法師跨局控場體系 (法師×2)",
+    "🎵 雙詩人雙流派輪轉體系 (詩人×2)",
     "👑 8異職全能體系 (0雙開)",
-    "🌿 德魯伊+武僧+騎士三核體系",
-    "🗡️ 刺客+武僧雙切後排體系",
-    "🛡️ 雙補/雙賢鐵桶防守體系",
-    "⚗️ 流氓/煉金雙開干擾體系",
-    "💃 單帶舞孃傳統體系 (舞孃×1)",
+    "🌿 德魯伊5v5團戰AOE體系",
+    "⚡ 雙賢者/雙流氓單挑分攤體系",
+    "⚗️ 煉金護貝防拆裝體系",
+    "💉 雙補師2v2保底有補體系 (補師×2)",
+    "💃 單帶舞孃體系 (舞孃×1)",
 ]
 
 
