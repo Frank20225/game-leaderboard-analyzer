@@ -10,6 +10,8 @@ Provides REST endpoints for:
 
 from __future__ import annotations
 
+import base64
+from difflib import SequenceMatcher
 import json
 import os
 import threading
@@ -20,6 +22,7 @@ from pathlib import Path
 from typing import Any
 
 import cv2
+import numpy as np
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -31,12 +34,15 @@ from src.export.pages_publisher import publish_to_github_pages
 from src.export.trend_export import export_trend_package
 from src.icons.database import IconDatabase
 from src.layout.detector import LayoutConfig, render_roi_debug_overlay
+from src.ocr.text_ocr import MultilingualOcrEngine
 from src.pipeline_phase1 import run_phase1
 from src.pipeline_phase2 import run_phase2
 from src.pipeline_phase3 import confirm_clusters_and_save_db, run_phase3
 from src.pipeline_phase4_5 import run_phase4_5
 
 TRENDS_DIR = OUTPUTS_DIR / "_trends"
+_SCOUT_OCR_ENGINE: MultilingualOcrEngine | None = None
+_SCOUT_OCR_LOCK = threading.Lock()
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
@@ -161,6 +167,33 @@ class TrendSnapshotInput(BaseModel):
 class TrendCompareRequest(BaseModel):
     trend_title: str = "排位賽多期環境與戰隊趨勢對比"
     snapshots: list[TrendSnapshotInput]
+
+
+class ScoutImageRequest(BaseModel):
+    image_base64: str
+    use_ocr: bool = True
+
+
+def _extract_text_silhouette_vec(bgr: np.ndarray) -> np.ndarray | None:
+    """Extract a scale-invariant 160x32 binary/grayscale silhouette vector of bright text."""
+    if bgr is None or bgr.size == 0:
+        return None
+    gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY) if bgr.ndim == 3 else bgr
+    # Enhance contrast and isolate bright text strokes on dark game UI background
+    norm = cv2.normalize(gray, None, 0, 255, cv2.NORM_MINMAX)
+    _, mask = cv2.threshold(norm, 145, 255, cv2.THRESH_BINARY)
+    ys, xs = np.where(mask > 0)
+    if len(xs) < 12 or len(ys) < 6:
+        resized = cv2.resize(norm, (160, 32), interpolation=cv2.INTER_AREA)
+    else:
+        x1, x2 = max(0, int(np.percentile(xs, 2)) - 2), min(norm.shape[1], int(np.percentile(xs, 98)) + 3)
+        y1, y2 = max(0, int(np.percentile(ys, 4)) - 2), min(norm.shape[0], int(np.percentile(ys, 96)) + 3)
+        crop = norm[y1:y2, x1:x2] if (x2 > x1 + 4 and y2 > y1 + 4) else norm
+        resized = cv2.resize(crop, (160, 32), interpolation=cv2.INTER_AREA)
+    vec = resized.astype(np.float32).ravel()
+    vec -= float(np.mean(vec))
+    denom = float(np.linalg.norm(vec))
+    return vec / denom if denom > 1e-6 else None
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -494,3 +527,97 @@ def serve_trend_file(trend_id: str, rel_path: str) -> FileResponse:
     if not str(target).startswith(str(t_path)) or not target.is_file():
         raise HTTPException(status_code=404, detail=f"找不到趨勢檔案: {rel_path}")
     return FileResponse(str(target))
+
+
+@app.post("/api/runs/{run_id}/scout-image")
+def scout_opponent_by_image(run_id: str, req: ScoutImageRequest) -> dict[str, Any]:
+    """Match a pasted in-game opponent name screenshot against the run's 200 teams via OCR + visual silhouette."""
+    global _SCOUT_OCR_ENGINE
+    run_path = _resolve_run_dir(run_id)
+    p3_teams = run_path / "phase3_icons" / "teams_with_icons.json"
+    p2_teams = run_path / "phase2_extracted" / "teams_raw.json"
+    target_path = p3_teams if p3_teams.is_file() else p2_teams
+    if not target_path.is_file():
+        raise HTTPException(status_code=400, detail="此分析紀錄尚未產生隊伍清單")
+
+    raw_b64 = req.image_base64.strip()
+    if "," in raw_b64 and raw_b64.startswith("data:"):
+        raw_b64 = raw_b64.split(",", 1)[1]
+    try:
+        img_bytes = base64.b64decode(raw_b64)
+        arr = np.frombuffer(img_bytes, dtype=np.uint8)
+        query_img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"無法解析貼上的圖片: {exc}") from exc
+
+    if query_img is None or query_img.size == 0:
+        raise HTTPException(status_code=400, detail="貼上的圖片內容為空")
+
+    ocr_text = ""
+    if req.use_ocr:
+        try:
+            with _SCOUT_OCR_LOCK:
+                if _SCOUT_OCR_ENGINE is None:
+                    _SCOUT_OCR_ENGINE = MultilingualOcrEngine()
+                ocr_res = _SCOUT_OCR_ENGINE.read_team_name(query_img)
+                ocr_text = (ocr_res.text or "").strip()
+        except Exception:
+            ocr_text = ""
+
+    q_vec = _extract_text_silhouette_vec(query_img)
+    teams = json.loads(target_path.read_text(encoding="utf-8"))
+    crops_dir = run_path / "phase2_extracted" / "crops"
+
+    scored: list[dict[str, Any]] = []
+    q_norm = "".join(ocr_text.lower().split())
+
+    for t in teams:
+        rank = int(t["rank"])
+        t_name = str(t.get("team_name") or "").strip()
+        t_norm = "".join(t_name.lower().split())
+
+        text_sim = 0.0
+        if q_norm and t_norm:
+            if q_norm in t_norm or t_norm in q_norm:
+                text_sim = max(0.88, SequenceMatcher(None, q_norm, t_norm).ratio())
+            else:
+                text_sim = SequenceMatcher(None, q_norm, t_norm).ratio()
+
+        vis_sim = 0.0
+        crop_file = crops_dir / f"rank_{rank:03d}_name.png"
+        if q_vec is not None and crop_file.is_file():
+            try:
+                c_arr = np.fromfile(str(crop_file), dtype=np.uint8)
+                c_img = cv2.imdecode(c_arr, cv2.IMREAD_COLOR)
+                c_vec = _extract_text_silhouette_vec(c_img) if c_img is not None else None
+                if c_vec is not None:
+                    vis_sim = float(max(0.0, np.dot(q_vec, c_vec)))
+            except Exception:
+                vis_sim = 0.0
+
+        combined = max(text_sim, vis_sim * 0.92, (text_sim * 0.65 + vis_sim * 0.35) if q_norm else vis_sim)
+        reason_parts = []
+        if text_sim >= 0.45:
+            reason_parts.append(f"文字吻合 {int(round(text_sim * 100))}%")
+        if vis_sim >= 0.40:
+            reason_parts.append(f"字形輪廓吻合 {int(round(vis_sim * 100))}%")
+        scored.append(
+            {
+                "rank": rank,
+                "team_name": t_name,
+                "score": t.get("score"),
+                "occupations": [o for o in (t.get("occupations") or []) if o],
+                "confidence": round(combined, 3),
+                "text_sim": round(text_sim, 3),
+                "visual_sim": round(vis_sim, 3),
+                "match_reason": " ＋ ".join(reason_parts) or f"綜合相似度 {int(round(combined * 100))}%",
+                "name_crop_rel": f"phase2_extracted/crops/rank_{rank:03d}_name.png" if crop_file.is_file() else "",
+            }
+        )
+
+    scored.sort(key=lambda x: (-x["confidence"], x["rank"]))
+    return {
+        "run_id": run_id,
+        "ocr_text": ocr_text,
+        "matches": scored[:5],
+    }

@@ -30,6 +30,20 @@
       <div id="progressDetail" class="progress-detail muted"></div>
     </div>
 
+    <div class="card" id="quickScoutBar" style="padding:12px 16px;margin-bottom:14px;border-color:rgba(56,189,248,.45)">
+      <div class="row" style="justify-content:space-between">
+        <div>
+          <b>🎯 實戰對手截圖秒查（免打泰文 / 免複製）</b>
+          <span class="muted" style="margin-left:8px">遊戲中按 <code>Win + Shift + S</code> 框選對手隊名後，直接在此頁按 <code>Ctrl + V</code> 貼上，即刻比對該隊 8 職業配置！</span>
+        </div>
+        <label class="btn secondary" style="cursor:pointer;padding:6px 12px;font-size:0.84rem">
+          📷 或選擇截圖檔
+          <input type="file" id="scoutFileInput" accept="image/*" style="display:none">
+        </label>
+      </div>
+      <div id="scoutResultBox" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)"></div>
+    </div>
+
     <nav class="steps">
       <button class="step-btn active" data-step="1">1. 選擇影片 &amp; ROI</button>
       <button class="step-btn" data-step="2">2. OCR 擷取與稽核</button>

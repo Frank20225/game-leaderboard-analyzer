@@ -532,4 +532,74 @@ $("btnCopyTrendSummary").onclick = async () => {
   showNotice("📋 跨期趨勢戰報已複製到剪貼簿！", "ok");
 };
 
+async function runImageScoutWithDataUrl(dataUrl) {
+  if (!currentRunId) {
+    return showNotice("請先於右上角選擇一個已分析完成的紀錄（如 200 隊紀錄）再貼上截圖", "warn");
+  }
+  const box = $("scoutResultBox");
+  box.style.display = "block";
+  box.innerHTML = `<div class="muted">⏳ 正在透過多語系 OCR ＋ 字形輪廓比對 200 隊名單...</div>`;
+  try {
+    const res = await api(`/api/runs/${encodeURIComponent(currentRunId)}/scout-image`, {
+      method: "POST",
+      body: JSON.stringify({ image_base64: dataUrl, use_ocr: true }),
+    });
+    const matches = res.matches || [];
+    const rowsHtml = matches
+      .map(
+        (m, idx) => `
+        <tr style="${idx === 0 ? "background:rgba(56,189,248,.12)" : ""}">
+          <td><b>#${m.rank}</b> ${idx === 0 ? '<span class="badge ok">最佳吻合</span>' : ""}</td>
+          <td>${m.name_crop_rel ? `<img src="${fileUrl(m.name_crop_rel)}" style="height:26px;border-radius:4px;vertical-align:middle">` : ""}</td>
+          <td><b>${m.team_name}</b></td>
+          <td>${m.score ?? "-"}</td>
+          <td><b>${(m.occupations || []).join(" / ")}</b></td>
+          <td class="muted">${m.match_reason} (${Math.round(m.confidence * 100)}%)</td>
+        </tr>`
+      )
+      .join("");
+    box.innerHTML = `
+      <div class="row" style="justify-content:space-between;margin-bottom:8px">
+        <div class="row">
+          <img src="${dataUrl}" alt="pasted" style="height:32px;border-radius:6px;border:1px solid var(--accent)">
+          <span>OCR 讀出文字：<code>${res.ocr_text || "(純字形輪廓比對)"}</code></span>
+        </div>
+        <button class="btn secondary" style="padding:4px 10px;font-size:0.8rem" onclick="document.getElementById('scoutResultBox').style.display='none'">✖ 關閉</button>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>排名</th><th>排行榜原圖</th><th>戰隊名稱</th><th>積分</th><th>對方 8 職業陣容</th><th>比對依據</th></tr></thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      </div>`;
+  } catch (e) {
+    box.innerHTML = `<div style="color:var(--danger)">截圖比對失敗：${e.message}</div>`;
+  }
+}
+
+window.addEventListener("paste", (ev) => {
+  const items = (ev.clipboardData && ev.clipboardData.items) || [];
+  for (const item of items) {
+    if (item.type && item.type.startsWith("image/")) {
+      const file = item.getAsFile();
+      if (!file) continue;
+      const reader = new FileReader();
+      reader.onload = () => runImageScoutWithDataUrl(reader.result);
+      reader.readAsDataURL(file);
+      ev.preventDefault();
+      break;
+    }
+  }
+});
+
+if ($("scoutFileInput")) {
+  $("scoutFileInput").onchange = (ev) => {
+    const file = ev.target.files && ev.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => runImageScoutWithDataUrl(reader.result);
+    reader.readAsDataURL(file);
+  };
+}
+
 refreshRuns();

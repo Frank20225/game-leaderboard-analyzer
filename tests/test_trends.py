@@ -49,3 +49,35 @@ def test_multi_run_trend_and_roster_diff(tmp_path: Path) -> None:
     assert len(manifest["card_paths"]) == 2
     assert all(Path(p).is_file() for p in manifest["card_paths"])
     assert "德魯伊" in manifest["summary_text"]
+
+
+def test_fuzzy_team_name_matching_across_ocr_jitter() -> None:
+    """Teams with 1-2 character OCR jitter (e.g. Encore.EXLI vs Encore.EXLM) should still link as the same team."""
+    w1 = [
+        {
+            "rank": 5,
+            "team_name": "Encore.EXLI",
+            "score": 82,
+            "occupations": ["補師", "法師", "詩人", "賢者", "騎士", "德魯伊", "武僧", "流氓"],
+        }
+    ]
+    w2 = [
+        {
+            "rank": 2,
+            "team_name": "Encore.EXLM",
+            "score": 95,
+            "occupations": ["補師", "法師", "法師", "詩人", "賢者", "騎士", "德魯伊", "武僧"],
+        }
+    ]
+    trend = compare_multiple_runs(
+        [
+            {"run_id": "w1", "label": "Week 1", "teams": w1},
+            {"run_id": "w2", "label": "Week 2", "teams": w2},
+        ]
+    )
+    assert trend["summary_counts"]["tracked_teams"] == 1
+    assert len(trend["roster_changes"]) == 1
+    ch = trend["roster_changes"][0]
+    assert ch["removed"] == ["流氓"]
+    assert ch["added"] == ["法師"]
+    assert ch["rank_delta"] == 3

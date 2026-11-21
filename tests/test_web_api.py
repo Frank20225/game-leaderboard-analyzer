@@ -105,3 +105,17 @@ def test_run_inspection_and_export_endpoints(live_server_url: str) -> None:
     assert exp["overview"]["total_teams"] == 30
     assert _get(f"{live_server_url}/api/runs/stage1_verify/files/report.xlsx")[0] == 200
     assert _get(f"{live_server_url}/api/runs/stage1_verify/files/share/report.html")[0] == 200
+
+    # Test clipboard screenshot opponent lookup endpoint (using a real saved name crop)
+    import base64
+
+    crop_p = VERIFY_RUN_DIR / "phase2_extracted" / "crops" / "rank_005_name.png"
+    if crop_p.is_file():
+        b64 = base64.b64encode(crop_p.read_bytes()).decode("ascii")
+        s_code, s_res = _post_json(
+            f"{live_server_url}/api/runs/stage1_verify/scout-image",
+            {"image_base64": f"data:image/png;base64,{b64}", "use_ocr": False},
+        )
+        assert s_code == 200
+        assert len(s_res["matches"]) >= 1
+        assert s_res["matches"][0]["rank"] == 5

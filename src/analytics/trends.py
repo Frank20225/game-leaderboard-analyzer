@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import re
 from collections import Counter, defaultdict
+from difflib import SequenceMatcher
 from typing import Any
 
 from src.analytics.stats import compute_leaderboard_analytics, format_full_team_signature
@@ -16,6 +17,51 @@ def _norm_team_key(name: str) -> str:
     """Normalize team name for resilient cross-day matching."""
     cleaned = re.sub(r"[\s_\-\.]+", "", str(name or "").strip().lower())
     return cleaned or str(name or "").strip()
+
+
+def _roster_overlap_count(occs_a: list[str], occs_b: list[str]) -> int:
+    """Count shared occupations (multiset intersection size, 0..8)."""
+    ca, cb = Counter(occs_a), Counter(occs_b)
+    return sum(min(ca[k], cb[k]) for k in (ca.keys() & cb.keys()))
+
+
+def _fuzzy_match_team_key(
+    raw_name: str,
+    occs: list[str],
+    known_keys: dict[str, dict[int, dict]],
+    display_names: dict[str, str],
+    curr_snap_idx: int,
+) -> str:
+    """Match a team to an existing canonical key using exact norm key OR fuzzy name + roster overlap.
+
+    Prevents slight cross-week OCR variations (e.g. 'Encore.EXLM' vs 'Encore.EXLI' or 1 Thai
+    diacritic difference) from breaking longitudinal team tracking!
+    """
+    norm_k = _norm_team_key(raw_name)
+    if norm_k in known_keys and curr_snap_idx not in known_keys[norm_k]:
+        return norm_k
+
+    best_key = norm_k
+    best_score = 0.0
+
+    for cand_key, obs_map in known_keys.items():
+        if curr_snap_idx in obs_map:
+            continue  # Candidate already matched a team in this snapshot
+        prev_snap = max(obs_map.keys())
+        prev_occs = obs_map[prev_snap]["occs"]
+        overlap = _roster_overlap_count(occs, prev_occs)
+
+        name_sim = SequenceMatcher(None, norm_k, cand_key).ratio()
+        # Match if:
+        # 1. Name is very similar (>= 0.84) and roster shares at least 4/8 classes, OR
+        # 2. Name is moderately similar (>= 0.72) and roster shares >= 6/8 classes!
+        if (name_sim >= 0.84 and overlap >= 4) or (name_sim >= 0.72 and overlap >= 6):
+            combined = name_sim * 0.65 + (overlap / 8.0) * 0.35
+            if combined > best_score:
+                best_score = combined
+                best_key = cand_key
+
+    return best_key
 
 
 def _clean_occs(team: dict) -> list[str]:
@@ -158,14 +204,15 @@ def compare_multiple_runs(
             raw_name = str(t.get("team_name") or "").strip()
             if not raw_name:
                 continue
-            key = _norm_team_key(raw_name)
+            occs_clean = _clean_occs(t)
+            key = _fuzzy_match_team_key(raw_name, occs_clean, team_obs, display_names, s_idx)
             # Keep the highest-rank or latest clean display name
             display_names[key] = raw_name
             team_obs[key][s_idx] = {
                 "rank": int(t["rank"]),
                 "score": t.get("score"),
-                "occs": _clean_occs(t),
-                "signature": format_full_team_signature(_clean_occs(t)),
+                "occs": occs_clean,
+                "signature": format_full_team_signature(occs_clean),
             }
 
     n_snaps = len(snapshots)

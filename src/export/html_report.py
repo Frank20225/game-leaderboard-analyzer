@@ -76,10 +76,12 @@ def generate_html_report(
   .lbl-flex {{ display: inline-flex; align-items: center; gap: 7px; font-weight: 600; }}
   table {{ width: 100%; border-collapse: collapse; font-size: 0.87rem; }}
   th, td {{ padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: left; }}
-  th {{ background: #0f172a; color: #cbd5e1; position: sticky; top: 0; }}
-  tr:hover td {{ background: rgba(56,189,248,.06); }}
-  .table-wrap {{ overflow-x: auto; max-height: 620px; }}
+  th {{ background: #0f172a; color: #cbd5e1; position: sticky; top: 0; z-index: 2; }}
+  tr.team-row {{ cursor: pointer; transition: background 0.12s; }}
+  tr.team-row:hover td {{ background: rgba(56,189,248,.09); }}
+  .table-wrap {{ overflow-x: auto; max-height: 680px; }}
   .pill {{ display: inline-flex; align-items: center; gap: 4px; background: var(--card2); padding: 3px 8px; border-radius: 999px; font-size: 0.8rem; margin: 2px; }}
+  .pill.dp {{ border: 1px solid rgba(245,158,11,.55); background: rgba(245,158,11,.14); }}
   .q-tag {{ padding: 2px 8px; border-radius: 999px; font-size: 0.78rem; font-weight: 700; display: inline-block; }}
   .q-t0 {{ background: rgba(56,189,248,.2); color: #7dd3fc; }}
   .q-dark {{ background: rgba(74,222,128,.2); color: #86efac; }}
@@ -87,11 +89,23 @@ def generate_html_report(
   .q-low {{ background: rgba(148,163,184,.2); color: #cbd5e1; }}
   .pos {{ color: var(--green); font-weight: 700; }}
   .neg {{ color: var(--red); font-weight: 700; }}
-  .controls {{ display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; align-items: center; }}
+  .controls {{ display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; align-items: center; }}
+  .filter-bar {{ display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; align-items: center; }}
+  .chip-btn {{ background: #0f172a; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 5px 12px; font-size: 0.82rem; cursor: pointer; font-weight: 600; }}
+  .chip-btn.active {{ background: rgba(56,189,248,.2); color: #7dd3fc; border-color: var(--accent); }}
   input, select {{ background: #0b1120; color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 0.9rem; }}
   .quad-wrap {{ position: relative; width: 100%; overflow-x: auto; }}
   svg.quad {{ width: 100%; max-width: 960px; height: auto; display: block; margin: 0 auto; background: #0f172a; border-radius: 12px; border: 1px solid var(--border); }}
   .heat-cell {{ text-align: center; font-weight: 700; border-radius: 4px; }}
+  .scout-box {{ background: #0f172a; border: 1px solid var(--accent); border-radius: 12px; padding: 14px 16px; margin: 4px 0; }}
+  .scout-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; margin-top: 10px; }}
+  .bo5-card {{ background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }}
+  .bo5-card h4 {{ margin: 0 0 6px; font-size: 0.88rem; color: var(--accent); }}
+  .builder-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 10px; margin: 14px 0; }}
+  .slot-box {{ background: #0f172a; border: 1px solid var(--border); border-radius: 10px; padding: 10px; text-align: center; }}
+  .slot-box select {{ width: 100%; margin-top: 6px; }}
+  .preset-btn {{ background: var(--card2); color: var(--text); border: 1px solid var(--accent); border-radius: 8px; padding: 7px 13px; cursor: pointer; font-weight: 600; font-size: 0.84rem; }}
+  .preset-btn:hover {{ background: rgba(56,189,248,.2); }}
   footer {{ text-align: center; color: var(--muted); font-size: 0.82rem; margin-top: 28px; }}
 </style>
 </head>
@@ -108,18 +122,40 @@ def generate_html_report(
   <section class="kpis" id="kpiRow"></section>
 
   <nav class="tabs">
-    <button class="tab active" data-tab="raw">1. 完整排行榜查詢</button>
+    <button class="tab active" data-tab="raw">1. 完整排行榜查詢 &amp; 對手秒查</button>
     <button class="tab" data-tab="quad">2. Meta 四象限＆出場率</button>
     <button class="tab" data-tab="doubles">3. 0/1/2隻 雙開效益</button>
     <button class="tab" data-tab="tiers">4. 各名次區間趨勢＆雙開結構</button>
     <button class="tab" data-tab="synergy">5. 協同/互斥＆建隊流派</button>
+    <button class="tab" data-tab="builder">🧪 6. 我方 8 人名單健檢器</button>
   </nav>
 
   <section id="tab-raw" class="panel active">
     <div class="card">
-      <h2>完整排行榜資料查詢</h2>
+      <h2>完整排行榜資料查詢 ＆ 實戰對手秒查（免打字／泰文友善）</h2>
+      <div class="sub" style="background:#0f172a;border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:12px;line-height:1.6">
+        🎯 <b>實戰排到泰文或無法複製的對手怎麼查？</b><br>
+        1️⃣ 先點下方<b>「語系秒篩」</b>（例如點 <code>🇹🇭 泰文隊</code> 立即縮小範圍）＋<b>「外觀特徵」</b>（含數字 / 字數長短），3 秒內免打泰文即可鎖定對手！<br>
+        2️⃣ <b>點擊表格任一戰隊列</b>，會立即展開該隊的<b>【🎯 BO5 五局（5v5 / 1v1 / 3v3 / 2v2）出場拆陣推演 ＆ 弱點針對情報卡】</b>。
+      </div>
+      <div class="filter-bar" id="scriptFilterBar">
+        <span class="sub" style="margin-right:4px">語系秒篩：</span>
+        <button class="chip-btn active" data-script="all">🌐 全部語系</button>
+        <button class="chip-btn" data-script="th">🇹🇭 泰文隊</button>
+        <button class="chip-btn" data-script="zh">🇹🇼 中文隊</button>
+        <button class="chip-btn" data-script="en">🔤 純英數隊</button>
+      </div>
+      <div class="filter-bar" id="featFilterBar">
+        <span class="sub" style="margin-right:4px">外觀特徵：</span>
+        <button class="chip-btn active" data-feat="all">📏 全部長度</button>
+        <button class="chip-btn" data-feat="num">🔢 含數字 (0-9)</button>
+        <button class="chip-btn" data-feat="sym">✨ 含特殊符號/點</button>
+        <button class="chip-btn" data-feat="short">短名 (≤5字)</button>
+        <button class="chip-btn" data-feat="mid">中名 (6~9字)</button>
+        <button class="chip-btn" data-feat="long">長名 (≥10字)</button>
+      </div>
       <div class="controls">
-        <input id="searchInput" type="search" placeholder="搜尋戰隊名稱或排名...">
+        <input id="searchInput" type="search" placeholder="輸入部分英數/中文字、跳字縮寫或排名 (如 #12, enc, 88)..." style="min-width:300px">
         <select id="occFilter"><option value="">篩選特定職業（全部）</option></select>
         <select id="dpFilter">
           <option value="">篩選雙開組數（全部）</option>
@@ -192,6 +228,21 @@ def generate_html_report(
     <div class="card">
       <h2>熱門三職業組合（每隊去重）</h2>
       <div class="table-wrap"><table id="tripleTable"></table></div>
+    </div>
+  </section>
+
+  <section id="tab-builder" class="panel">
+    <div class="card">
+      <h2>🧪 我方 8 人名單健檢器 ＆ AI 換角最佳化模擬</h2>
+      <p class="sub">依據本場 200 隊大數據（0/1/2 隻平均名次、Synergy Lift 協同矩陣與 BO5 鎖人規則），即時評估你的 8 人名單強度、抓出互斥陷阱，並比對排行榜上最相似的實戰強隊！</p>
+      <div class="filter-bar" style="margin-top:10px">
+        <span class="sub">一鍵套用大數據推薦陣容：</span>
+        <button class="preset-btn" data-preset="法師,法師,補師,詩人,賢者,騎士,德魯伊,武僧">🔥 推薦一：雙法核彈陣（雙開均排 #57.6）</button>
+        <button class="preset-btn" data-preset="補師,法師,詩人,賢者,騎士,德魯伊,武僧,刺客">👑 推薦二：8 異職全能冠軍陣（Top 10 主流）</button>
+        <button class="preset-btn" data-preset="詩人,詩人,補師,法師,賢者,騎士,德魯伊,武僧">🎵 推薦三：雙詩人消耗陣（雙開均排 #87.8）</button>
+      </div>
+      <div class="builder-grid" id="builderSlots"></div>
+      <div id="builderResult"></div>
     </div>
   </section>
 
@@ -332,32 +383,386 @@ document.getElementById('tripleTable').innerHTML =
   '<thead><tr><th>三職業組合</th><th>隊數</th><th>佔比</th><th>平均排名</th><th>Top 10 佔比</th><th>代表戰隊</th></tr></thead><tbody>' +
   (A.triple_combinations || []).slice(0, 35).map(r => `<tr><td><b>${{esc(r.combination)}}</b></td><td>${{r.team_count}}</td><td>${{pct(r.team_rate)}}</td><td>#${{r.avg_rank}}</td><td>${{pct(r.top10_rate)}}</td><td class="sub">${{esc(r.sample_teams)}}</td></tr>`).join('') + '</tbody>';
 
+// BO5 Lineup Predictor & Opponent Scouting Card Generator
+function buildScoutCardHtml(team) {{
+  const occs = (team.occupations || []).filter(Boolean);
+  const counts = {{}};
+  occs.forEach(o => counts[o] = (counts[o] || 0) + 1);
+  const doubles = Object.keys(counts).filter(o => counts[o] >= 2);
+
+  // Predict G2 (1v1): Rule says G2 player is locked out of G3 (3v3) & G4 (2v2).
+  // Best G2 choices: 2nd copy of a double-picked combat/control class, or solo duelist (武僧/刺客/流氓/騎士/德魯伊)
+  const duelistPriority = ['武僧', '刺客', '流氓', '騎士', '法師', '德魯伊', '煉金', '鐵匠', '詩人', '十字'];
+  let g2Primary = null;
+  let g2Reason = '';
+  for (const d of doubles) {{
+    if (['法師', '流氓', '詩人', '騎士', '煉金', '武僧', '刺客', '德魯伊'].includes(d)) {{
+      g2Primary = d;
+      g2Reason = `該隊雙開【${{d}}×2】，派第 2 隻打 G2 單挑被鎖定後，G3/G4 仍保有第 1 隻【${{d}}】不斷檔！`;
+      break;
+    }}
+  }}
+  if (!g2Primary) {{
+    g2Primary = duelistPriority.find(c => counts[c]) || occs[0] || '未知';
+    g2Reason = `該隊無雙開打手，極高機率派出單挑強勢職【${{g2Primary}}】搶 G2 單挑局（注意其 G3/G4 將少此職）。`;
+  }}
+
+  // Remaining 7 players after G2 player is locked out of G3/G4
+  const rem7 = [...occs];
+  const g2Idx = rem7.indexOf(g2Primary);
+  if (g2Idx >= 0) rem7.splice(g2Idx, 1);
+
+  // Predict G1/G5 5v5 Main Lineup
+  const g1Order = ['補師', '騎士', '十字', '詩人', '賢者', '法師', '德魯伊', '武僧', '刺客', '流氓', '煉金', '舞孃', '鐵匠', '獵人'];
+  const g1Pool = [...occs].sort((a, b) => g1Order.indexOf(a) - g1Order.indexOf(b));
+  const g1Five = [];
+  const usedG1Counts = {{}};
+  // First pass: pick 5 distinct core roles if available
+  for (const c of g1Pool) {{
+    if (g1Five.length < 5 && !usedG1Counts[c]) {{
+      g1Five.push(c);
+      usedG1Counts[c] = 1;
+    }}
+  }}
+  for (const c of g1Pool) {{
+    if (g1Five.length < 5 && (usedG1Counts[c] || 0) < counts[c]) {{
+      g1Five.push(c);
+      usedG1Counts[c] = (usedG1Counts[c] || 0) + 1;
+    }}
+  }}
+
+  // Predict G3 3v3 Trio from rem7 (1 sustain + 1 front/control + 1 burst)
+  const g3Order = ['補師', '德魯伊', '騎士', '武僧', '法師', '詩人', '賢者', '流氓', '刺客', '煉金', '舞孃', '十字', '鐵匠'];
+  const g3Three = [];
+  const rem7Copy = [...rem7].sort((a, b) => g3Order.indexOf(a) - g3Order.indexOf(b));
+  for (const c of rem7Copy) {{
+    if (g3Three.length < 3 && !g3Three.includes(c)) g3Three.push(c);
+  }}
+  while (g3Three.length < 3 && rem7Copy.length > g3Three.length) {{
+    g3Three.push(rem7Copy[g3Three.length]);
+  }}
+
+  // Predict G4 2v2 Duo: Seat 1 = G1 player not in G2/G3; Seat 2 = 1 player from G3
+  const g4Seat1Pool = g1Five.filter(c => !g3Three.includes(c) && c !== g2Primary);
+  const g4Seat1 = g4Seat1Pool[0] || rem7.find(c => !g3Three.includes(c)) || rem7[0] || '搖擺位';
+  const g4Seat2 = g3Three.find(c => c !== '補師') || g3Three[0] || '主力位';
+
+  // Counter Tips
+  const tips = [];
+  if ((counts['法師'] || 0) >= 2) tips.push('🔥 <b>雙法核彈預警</b>：該隊帶滿 2 隻法師，5v5 團戰範圍爆發極高，我方務必扣好賢者領域/魔解並派刺客或武僧優先貼臉斷招。');
+  if ((counts['詩人'] || 0) >= 2) tips.push('🎵 <b>雙詩人高頻控場/加速</b>：切忌與其打慢節奏消耗戰，建議開場直接集火秒殺其無位移脆皮。');
+  if ((counts['補師'] || 0) === 1 && !(counts['德魯伊'] || 0)) tips.push('💉 <b>單奶無德魯伊弱點</b>：該隊僅 1 隻補師且無德魯伊副奶，5v5/3v3 只要強行集火補師逼出 3 次復活上限，對方續航即刻瓦解。');
+  if (!(counts['賢者'] || 0)) tips.push('⚡ <b>無賢者空窗</b>：對手名單完全沒有賢者，缺乏地領與魔法反制，我方法師與控場可大膽鋪場壓制。');
+  if ((counts['武僧'] || 0) || (counts['刺客'] || 0)) tips.push(`🗡️ <b>後排防切入警告</b>：對手擁有【${{['武僧','刺客'].filter(c=>counts[c]).join('＋')}}】，我方補師與法師需隨時注意霸邪/安全壁保護。`);
+  if (!tips.length) tips.push('⚖️ <b>標準均衡陣容</b>：對手無明顯極端偏科，建議於 G2 1v1 與 G4 2v2 針對其單挑鎖人空窗期搶分。');
+
+  const renderPills = arr => arr.map(o => `<span class="pill">${{ico(o)}}<span>${{esc(o)}}</span></span>`).join('');
+
+  return `
+  <div class="scout-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <div><b>🎯 #${{team.rank}} ${{esc(team.team_name)}} — 實戰情報卡 ＆ BO5 五局拆陣推演</b></div>
+      <span class="sub">雙開核心：${{doubles.length ? doubles.map(d => `<b>${{d}}×2</b>`).join('、') : '無（8 異職）'}}</span>
+    </div>
+    <div style="margin-top:8px;font-size:0.85rem;line-height:1.65">
+      ${{tips.map(t => `<div>• ${{t}}</div>`).join('')}}
+    </div>
+    <div class="scout-grid">
+      <div class="bo5-card">
+        <h4>G1 &amp; G5｜5v5 主力團戰預測</h4>
+        <div>${{renderPills(g1Five)}}</div>
+        <div class="sub" style="font-size:0.78rem;margin-top:4px">優先湊齊主坦＋主補＋控場＋雙核心輸出</div>
+      </div>
+      <div class="bo5-card">
+        <h4>G2｜1v1 單挑鎖人預測 ⚠️</h4>
+        <div>${{renderPills([g2Primary])}}</div>
+        <div class="sub" style="font-size:0.78rem;margin-top:4px">${{esc(g2Reason)}}</div>
+      </div>
+      <div class="bo5-card">
+        <h4>G3｜3v3 小團戰預測（禁 G2）</h4>
+        <div>${{renderPills(g3Three)}}</div>
+        <div class="sub" style="font-size:0.78rem;margin-top:4px">扣除 G2 選手後最強 1 奶 1 前排 1 輸出鐵三角</div>
+      </div>
+      <div class="bo5-card">
+        <h4>G4｜2v2 雙人戰預測（鎖定規則）</h4>
+        <div>${{renderPills([g4Seat1, g4Seat2])}}</div>
+        <div class="sub" style="font-size:0.78rem;margin-top:4px">席次1（G1未打G2/G3）：<b>${{esc(g4Seat1)}}</b>＋席次2（G3兼任）：<b>${{esc(g4Seat2)}}</b></div>
+      </div>
+    </div>
+  </div>`;
+}}
+
+// Tab 1 Filtering (Script + Visual Feature + Fuzzy Search + Click-to-Scout)
 const occSel = document.getElementById('occFilter');
 A.occupation_frequency.forEach(r => {{ const o = document.createElement('option'); o.value = r.occupation; o.textContent = r.occupation; occSel.appendChild(o); }});
 const dpSel = document.getElementById('dpFilter');
+let activeScript = 'all';
+let activeFeat = 'all';
+let expandedRanks = new Set();
+
+function detectScript(name) {{
+  const s = String(name || '');
+  if (/[\u0e00-\u0e7f]/.test(s)) return 'th';
+  if (/[\u4e00-\u9fff]/.test(s)) return 'zh';
+  return 'en';
+}}
+
+function matchFeature(name, feat) {{
+  const s = String(name || '').trim();
+  const len = [...s].length;
+  if (feat === 'num') return /\d/.test(s);
+  if (feat === 'sym') return /[^a-zA-Z0-9\u4e00-\u9fff\u0e00-\u0e7f\s]/.test(s);
+  if (feat === 'short') return len <= 5;
+  if (feat === 'mid') return len >= 6 && len <= 9;
+  if (feat === 'long') return len >= 10;
+  return true;
+}}
+
+function fuzzyMatch(text, query) {{
+  if (!query) return true;
+  const t = String(text || '').toLowerCase();
+  const q = query.toLowerCase().replace(/^#/, '');
+  if (t.includes(q)) return true;
+  // Subsequence match for quick alphanumeric abbreviation lookup (e.g. "exl" -> "Encore.EXLI")
+  let qi = 0;
+  for (let ti = 0; ti < t.length && qi < q.length; ti++) {{
+    if (t[ti] === q[qi]) qi++;
+  }}
+  return qi === q.length && q.length >= 2;
+}}
+
+document.querySelectorAll('#scriptFilterBar .chip-btn').forEach(btn => {{
+  btn.onclick = () => {{
+    document.querySelectorAll('#scriptFilterBar .chip-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeScript = btn.dataset.script;
+    renderRaw();
+  }};
+}});
+
+document.querySelectorAll('#featFilterBar .chip-btn').forEach(btn => {{
+  btn.onclick = () => {{
+    document.querySelectorAll('#featFilterBar .chip-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeFeat = btn.dataset.feat;
+    renderRaw();
+  }};
+}});
+
+window.toggleScoutRow = function(rank) {{
+  if (expandedRanks.has(rank)) expandedRanks.delete(rank);
+  else expandedRanks.add(rank);
+  renderRaw();
+}};
 
 function renderRaw() {{
-  const q = document.getElementById('searchInput').value.trim().toLowerCase();
+  const q = document.getElementById('searchInput').value.trim();
   const occ = occSel.value;
   const dp = dpSel.value;
   const filtered = A.raw_data.filter(r => {{
+    if (activeScript !== 'all' && detectScript(r.team_name) !== activeScript) return false;
+    if (activeFeat !== 'all' && !matchFeature(r.team_name, activeFeat)) return false;
     if (occ && !r.occupations.includes(occ)) return false;
     if (dp !== '') {{
       const dpc = r.double_pick_count || 0;
       if (dp === '3' ? dpc < 3 : dpc !== Number(dp)) return false;
     }}
-    if (q && !(String(r.rank).includes(q) || (r.team_name || '').toLowerCase().includes(q) || (r.full_team_signature || '').toLowerCase().includes(q))) return false;
+    if (q) {{
+      const rankHit = String(r.rank) === q.replace(/^#/, '') || ('#' + r.rank).includes(q);
+      const nameHit = fuzzyMatch(r.team_name, q);
+      const sigHit = (r.full_team_signature || '').toLowerCase().includes(q.toLowerCase());
+      if (!rankHit && !nameHit && !sigHit) return false;
+    }}
     return true;
   }});
-  document.getElementById('rawCount').textContent = `顯示 ${{filtered.length}} / ${{A.raw_data.length}} 隊`;
+
+  document.getElementById('rawCount').textContent = `顯示 ${{filtered.length}} / ${{A.raw_data.length}} 隊（點擊任一列展開 BO5 拆陣情報卡）`;
+  const scriptBadge = s => s === 'th' ? '<span class="q-tag q-std" style="margin-right:6px">🇹🇭泰</span>' : s === 'zh' ? '<span class="q-tag q-t0" style="margin-right:6px">🇹🇼中</span>' : '<span class="q-tag q-low" style="margin-right:6px">🔤英</span>';
+
+  let rowsHtml = '';
+  filtered.forEach(r => {{
+    const counts = {{}};
+    (r.occupations || []).forEach(o => counts[o] = (counts[o] || 0) + 1);
+    const isExp = expandedRanks.has(r.rank);
+    rowsHtml += `<tr class="team-row" onclick="toggleScoutRow(${{r.rank}})">
+      <td><b>#${{r.rank}}</b></td>
+      <td>${{scriptBadge(detectScript(r.team_name))}}<b>${{esc(r.team_name)}}</b> <span class="sub" style="font-size:0.76rem">${{isExp ? '▲ 收合情報' : '▼ 展開 BO5 推演'}}</span></td>
+      <td>${{r.score ?? '-'}}</td>
+      <td>${{r.double_pick_count}} 組</td>
+      <td>${{r.occupations.map(o => `<span class="pill ${{counts[o]>=2?'dp':''}}">${{ico(o)}}<span>${{esc(o)}}</span></span>`).join('')}}</td>
+    </tr>`;
+    if (isExp) {{
+      rowsHtml += `<tr><td colspan="5" style="padding:4px 10px 14px;background:#090e1a">${{buildScoutCardHtml(r)}}</td></tr>`;
+    }}
+  }});
+
   document.getElementById('rawTable').innerHTML =
-    '<thead><tr><th>排名</th><th>戰隊名稱</th><th>積分</th><th>雙開</th><th>8 人名單配置</th></tr></thead><tbody>' +
-    filtered.map(r => `<tr><td><b>#${{r.rank}}</b></td><td>${{esc(r.team_name)}}</td><td>${{r.score ?? '-'}}</td><td>${{r.double_pick_count}}</td><td>${{r.occupations.map(o => `<span class="pill">${{ico(o)}}<span>${{esc(o)}}</span></span>`).join('')}}</td></tr>`).join('') + '</tbody>';
+    '<thead><tr><th>排名</th><th>戰隊名稱（點擊展開 BO5 情報卡）</th><th>積分</th><th>雙開</th><th>8 人名單配置（金色外框＝雙開職）</th></tr></thead><tbody>' +
+    rowsHtml + '</tbody>';
 }}
 document.getElementById('searchInput').oninput = renderRaw;
 occSel.onchange = renderRaw;
 dpSel.onchange = renderRaw;
 renderRaw();
+
+// Tab 6: My 8-Player Roster Builder & Evaluator
+(function initRosterBuilder() {{
+  const allOccs = A.occupation_frequency.map(r => r.occupation);
+  const occStats = {{}};
+  A.occupation_frequency.forEach(r => occStats[r.occupation] = r);
+  const synMatrix = A.synergy_matrix || {{}};
+
+  const defaultRoster = ['法師', '法師', '補師', '詩人', '賢者', '騎士', '德魯伊', '武僧'];
+  const slotsBox = document.getElementById('builderSlots');
+
+  function renderSelects(roster) {{
+    slotsBox.innerHTML = roster.map((c, idx) => `
+      <div class="slot-box">
+        <div class="sub" style="font-size:0.78rem">席次 #${{idx + 1}}</div>
+        <div id="slotIco_${{idx}}" style="margin:6px 0">${{ico(c)}}</div>
+        <select class="builder-sel" data-idx="${{idx}}">
+          ${{allOccs.map(o => `<option value="${{esc(o)}}" ${{o === c ? 'selected' : ''}}>${{esc(o)}}</option>`).join('')}}
+        </select>
+      </div>
+    `).join('');
+    document.querySelectorAll('.builder-sel').forEach(sel => {{
+      sel.onchange = () => evaluateCurrentBuilder();
+    }});
+  }}
+
+  function scoreRoster(occs) {{
+    const counts = {{}};
+    occs.forEach(o => counts[o] = (counts[o] || 0) + 1);
+    const violations = Object.keys(counts).filter(o => counts[o] > 2);
+
+    // Compute expected rank contribution from each distinct occupation's copy_1 / copy_2 bucket
+    let rankSum = 0;
+    let weightSum = 0;
+    const notes = [];
+    Object.entries(counts).forEach(([o, cnt]) => {{
+      const st = occStats[o];
+      if (!st) return;
+      const bucket = cnt >= 2 ? st.copy_2 : st.copy_1;
+      const bRank = (bucket && bucket.teams >= 2 && bucket.avg_rank) ? bucket.avg_rank : st.avg_rank;
+      const w = cnt >= 2 ? 2.2 : 1.0;
+      rankSum += bRank * w;
+      weightSum += w;
+      if (cnt === 2 && st.double_rank_gain !== null && st.double_rank_gain >= 5) {{
+        notes.push({{ type: 'pos', text: `✅ 【${{o}}×2 滿編雙開】大數據雙開均排 #${{bucket.avg_rank}}（比單帶提升 +${{st.double_rank_gain}} 名）` }});
+      }} else if (cnt === 2 && st.double_rank_gain !== null && st.double_rank_gain <= -5) {{
+        notes.push({{ type: 'neg', text: `⚠️ 【${{o}}×2 雙開警告】大數據顯示雙開【${{o}}】均排掉至 #${{bucket.avg_rank}}（${{st.double_rank_gain}} 名），建議改為單帶騰出席次` }});
+      }} else if (cnt === 1 && o === '舞孃') {{
+        notes.push({{ type: 'neg', text: `⚠️ 【單帶舞孃陷阱】本場 100 隊單帶舞孃均排僅 #111.7（不帶均排 #89.0），除非與詩人雙綁定否則建議換為德魯伊/武僧/刺客` }});
+      }}
+    }});
+
+    const distinct = Object.keys(counts);
+    const goodSyns = [];
+    const subConflicts = [];
+    let synBonus = 0;
+    for (let i = 0; i < distinct.length; i++) {{
+      for (let j = i + 1; j < distinct.length; j++) {{
+        const a = distinct[i], b = distinct[j];
+        const lift = (synMatrix[a] && synMatrix[a][b]) ? synMatrix[a][b] : 1.0;
+        if (lift >= 1.15) {{
+          goodSyns.push(`${{a}}＋${{b}} (${{lift}}x)`);
+          synBonus += (lift - 1.0) * 6.5;
+        }} else if (lift <= 0.82) {{
+          subConflicts.push(`${{a}} vs ${{b}} (Lift ${{lift}}x)`);
+          synBonus -= (0.85 - lift) * 5.0;
+        }}
+      }}
+    }}
+
+    const baseExpectedRank = weightSum ? (rankSum / weightSum) : ov.overall_avg_rank;
+    const estRank = Math.max(1, Math.min(200, Math.round((baseExpectedRank - synBonus) * 10) / 10));
+    return {{ counts, violations, estRank, notes, goodSyns, subConflicts }};
+  }}
+
+  function evaluateCurrentBuilder() {{
+    const occs = [...document.querySelectorAll('.builder-sel')].map(s => s.value);
+    occs.forEach((c, idx) => {{
+      const box = document.getElementById('slotIco_' + idx);
+      if (box) box.innerHTML = ico(c);
+    }});
+
+    const res = scoreRoster(occs);
+    const dpCount = Object.values(res.counts).filter(v => v === 2).length;
+
+    // Find best 1-slot swap suggestion
+    let bestSwap = null;
+    let bestRankAfter = res.estRank;
+    for (let i = 0; i < 8; i++) {{
+      const cur = occs[i];
+      for (const cand of allOccs) {{
+        if (cand === cur) continue;
+        const trial = [...occs];
+        trial[i] = cand;
+        const tRes = scoreRoster(trial);
+        if (tRes.violations.length === 0 && tRes.estRank < bestRankAfter - 0.8) {{
+          bestRankAfter = tRes.estRank;
+          bestSwap = {{ slot: i + 1, from: cur, to: cand, newRank: tRes.estRank, gain: Math.round((res.estRank - tRes.estRank) * 10) / 10 }};
+        }}
+      }}
+    }}
+
+    // Find Top 5 most similar real leaderboard teams (multiset intersection)
+    const simTeams = A.raw_data.map(t => {{
+      const tCounts = {{}};
+      (t.occupations || []).forEach(o => tCounts[o] = (tCounts[o] || 0) + 1);
+      let overlap = 0;
+      Object.keys(res.counts).forEach(o => {{
+        overlap += Math.min(res.counts[o] || 0, tCounts[o] || 0);
+      }});
+      return {{ team: t, overlap }};
+    }}).sort((a, b) => (b.overlap - a.overlap) || (a.team.rank - b.team.rank)).slice(0, 5);
+
+    const grade = res.violations.length ? '❌ 違規（同職超過2名）' : res.estRank <= 78 ? '🏆 S+ 爭冠T0級' : res.estRank <= 90 ? '🔥 S 前段強勢級' : res.estRank <= 100 ? '⚖️ A 標準中堅級' : '⚠️ B 建議調整席次';
+
+    document.getElementById('builderResult').innerHTML = `
+      <div class="scout-box" style="margin-top:12px">
+        <div class="kpis" style="margin-bottom:12px">
+          <div class="kpi"><div class="lbl">賽制合規檢查</div><div class="val ${{res.violations.length?'neg':'pos'}}" style="font-size:1.1rem">${{res.violations.length ? '❌ ' + res.violations.join(',') + ' 超過2隻' : '✅ 符合同職 ≤ 2 規則'}}</div></div>
+          <div class="kpi"><div class="lbl">陣容戰力評級</div><div class="val" style="font-size:1.15rem">${{grade}}</div></div>
+          <div class="kpi"><div class="lbl">大數據預估強度落點</div><div class="val">#${{res.estRank}} <span class="sub" style="font-size:0.8rem">(全場均#100.5)</span></div></div>
+          <div class="kpi"><div class="lbl">雙開結構</div><div class="val" style="font-size:1.1rem">${{dpCount}} 組雙開 (${{8 - dpCount * 2}} 異職)</div></div>
+        </div>
+        <div style="line-height:1.7;font-size:0.9rem">
+          ${{res.notes.map(n => `<div class="${{n.type}}">${{n.text}}</div>`).join('')}}
+          <div>🔗 <b>觸發高協同搭檔 (${{res.goodSyns.length}} 組)</b>：${{res.goodSyns.length ? res.goodSyns.map(s => `<span class="pill">${{esc(s)}}</span>`).join(' ') : '<span class="sub">無明顯高 Lift 綁定組</span>'}}</div>
+          ${{res.subConflicts.length ? `<div style="margin-top:4px">⚡ <b>同定位搶位提醒</b>：${{res.subConflicts.map(s => `<span class="pill">${{esc(s)}}</span>`).join(' ')}}（通常強隊二選一即可）</div>` : ''}}
+          ${{bestSwap ? `<div style="margin-top:8px;padding:8px 12px;background:rgba(74,222,128,.12);border:1px solid var(--green);border-radius:8px">💡 <b>AI 單格換角最佳化建議</b>：若將 <b>席次 #${{bestSwap.slot}}【${{esc(bestSwap.from)}}】→ 換成【${{esc(bestSwap.to)}}】</b>，預估強度落點可從 <b>#${{res.estRank}} 提升至 #${{bestSwap.newRank}}（+${{bestSwap.gain}} 名）</b>！</div>` : '<div style="margin-top:8px;color:var(--green)">✨ <b>目前 8 人配置已達局部最佳解，無需單格換角！</b></div>'}}
+        </div>
+        <h3 style="margin:14px 0 8px;font-size:0.98rem">🏆 排行榜上與你最相似的 Top 5 實戰參考戰隊</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>相似度</th><th>排名</th><th>戰隊名稱</th><th>積分</th><th>該隊 8 人名單</th></tr></thead>
+            <tbody>
+              ${{simTeams.map(({{team, overlap}}) => `<tr>
+                <td><span class="q-tag ${{overlap>=7?'q-t0':overlap>=6?'q-dark':'q-std'}}"><b>${{overlap}} / 8 相同</b></span></td>
+                <td><b>#${{team.rank}}</b></td>
+                <td>${{esc(team.team_name)}}</td>
+                <td>${{team.score ?? '-'}}</td>
+                <td>${{team.occupations.map(o => `<span class="pill">${{ico(o)}}<span>${{esc(o)}}</span></span>`).join('')}}</td>
+              </tr>`).join('')}}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  }}
+
+  renderSelects(defaultRoster);
+  evaluateCurrentBuilder();
+
+  document.querySelectorAll('.preset-btn').forEach(btn => {{
+    btn.onclick = () => {{
+      const arr = btn.dataset.preset.split(',');
+      renderSelects(arr);
+      evaluateCurrentBuilder();
+    }};
+  }});
+}})();
 </script>
 </body>
 </html>
