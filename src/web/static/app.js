@@ -349,8 +349,19 @@ function renderClusters(p3) {
 function renderEditableTeams() {
   const teams = (currentState && currentState.teams) || [];
   const onlyFlagged = $("chkOnlyFlagged").checked;
-  const shown = onlyFlagged ? teams.filter((t) => t.status === "flagged") : teams;
-  $("editCountInfo").textContent = `顯示 ${shown.length} / ${teams.length} 隊`;
+  const kw = ($("editSearchInput") ? $("editSearchInput").value : "").trim().toLowerCase();
+  const shown = teams.filter((t) => {
+    if (onlyFlagged && t.status !== "flagged") return false;
+    if (kw) {
+      const rankHit = String(t.rank) === kw.replace(/^#/, "") || ("#" + t.rank).includes(kw);
+      const nameHit = (t.team_name || "").toLowerCase().includes(kw);
+      const occHit = (t.occupations || []).join(",").toLowerCase().includes(kw);
+      if (!rankHit && !nameHit && !occHit) return false;
+    }
+    return true;
+  });
+  const flaggedTotal = teams.filter((t) => t.status === "flagged").length;
+  $("editCountInfo").textContent = `顯示 ${shown.length} / ${teams.length} 隊（待確認異常列：${flaggedTotal} 筆）`;
 
   const header = `<thead><tr><th>排名</th><th>原圖對照</th><th>戰隊名稱</th><th>積分</th><th>8 職業（逗號分隔）</th><th>狀態</th></tr></thead>`;
   const body = shown
@@ -414,6 +425,7 @@ function renderLearningTab() {
 $("btnRefreshRuns").onclick = () => refreshRuns(currentRunId);
 $("runSelect").onchange = (e) => loadRun(e.target.value);
 $("chkOnlyFlagged").onchange = renderEditableTeams;
+if ($("editSearchInput")) $("editSearchInput").oninput = renderEditableTeams;
 
 $("btnOpenFolder").onclick = async () => {
   if (!currentRunId) return;
@@ -451,15 +463,26 @@ if ($("btnRunFullAuto")) {
         method: "POST",
         body: JSON.stringify({ video_path: vp }),
       });
-      const res = await pollJob(job_id, "⚡ 一鍵全自動分析（Phase 1 影格提取 → Phase 2 多語系 OCR → Phase 3 圖示自動比對 → Phase 4&5 報告產出）");
-      showNotice(
-        `🎉 全自動分析完成！共擷取 ${res.team_count} 隊（圖示庫自動命中 ${res.db_matched_count}/${res.total_icons} 格），已直接產出「${res.report_title}」！`,
-        "ok"
-      );
+      const res = await pollJob(job_id, "⚡ 一鍵全自動分析（Phase 1 影格提取 → Phase 2 多語系 OCR → Phase 3 圖示自動比對＆歷史隊名校正 → Phase 4&5 報告產出）");
       await refreshRuns(res.run_id);
-      // Automatically jump to Step 5 Export tab so user can immediately open/publish the report!
-      const step5Btn = document.querySelector('.step-btn[data-step="5"]');
-      if (step5Btn) step5Btn.click();
+      const alignNote = res.aligned_name_count ? `（已自動根據歷史期數校正 ${res.aligned_name_count} 支隊名）` : "";
+      if (res.flagged_team_count > 0) {
+        $("chkOnlyFlagged").checked = true;
+        renderEditableTeams();
+        const step4Btn = document.querySelector('.step-btn[data-step="4"]');
+        if (step4Btn) step4Btn.click();
+        showNotice(
+          `⚠️ 全自動分析與初版報告已完成${alignNote}！偵測到 ${res.flagged_team_count} 筆低信心度/待確認列，已自動為你篩選於下方 Step 4，確認修改後點「🚀 儲存修正並立即更新報告」即可！`,
+          "warn"
+        );
+      } else {
+        const step5Btn = document.querySelector('.step-btn[data-step="5"]');
+        if (step5Btn) step5Btn.click();
+        showNotice(
+          `🎉 全自動分析完成！共擷取 ${res.team_count} 隊（0 異常列${alignNote}），已直接產出「${res.report_title}」！若想微調隊名可隨時點 Step 4。`,
+          "ok"
+        );
+      }
     } catch (e) {
       showNotice("全自動分析失敗：" + e.message, "err");
     }
@@ -526,8 +549,7 @@ $("btnConfirmClusters").onclick = async () => {
   }
 };
 
-$("btnSaveEdits").onclick = async () => {
-  if (!currentRunId) return;
+async function collectAndSaveTeamEdits() {
   const updates = [];
   document.querySelectorAll("#editTeamsTable tbody tr").forEach((tr) => {
     const rank = parseInt(tr.dataset.rank, 10);
@@ -537,17 +559,61 @@ $("btnSaveEdits").onclick = async () => {
     const occupations = tr.querySelector(".ed-occs").value.split(",").map((s) => s.trim());
     updates.push({ rank, team_name, score, occupations, status: "edited" });
   });
+  return await api(`/api/runs/${encodeURIComponent(currentRunId)}/teams/update`, {
+    method: "POST",
+    body: JSON.stringify({ updates }),
+  });
+}
+
+$("btnSaveEdits").onclick = async () => {
+  if (!currentRunId) return;
   try {
-    const res = await api(`/api/runs/${encodeURIComponent(currentRunId)}/teams/update`, {
-      method: "POST",
-      body: JSON.stringify({ updates }),
-    });
-    showNotice(`✅ 已儲存 ${res.updated_count} 筆人工校對資料！可前往 Step 5 重新匯出報告。`, "ok");
+    const res = await collectAndSaveTeamEdits();
+    showNotice(`✅ 已儲存 ${res.updated_count} 筆人工校對資料！`, "ok");
     await loadRun(currentRunId);
   } catch (e) {
     showNotice("儲存失敗：" + e.message, "err");
   }
 };
+
+if ($("btnSaveAndReexport")) {
+  $("btnSaveAndReexport").onclick = async () => {
+    if (!currentRunId) return;
+    try {
+      showNotice("⏳ 正在儲存人工校對並重新產出 7 頁 Excel、互動網頁與 4 張圖卡...", "warn");
+      const res = await collectAndSaveTeamEdits();
+      const title = $("reportTitleInput").value.trim() || getDefaultReportTitle();
+      await api(`/api/runs/${encodeURIComponent(currentRunId)}/export`, {
+        method: "POST",
+        body: JSON.stringify({ report_title: title }),
+      });
+      await loadRun(currentRunId);
+      const step5Btn = document.querySelector('.step-btn[data-step="5"]');
+      if (step5Btn) step5Btn.click();
+      showNotice(`✅ 已儲存 ${res.updated_count} 筆校對並同步更新「${title}」所有報告與圖卡！`, "ok");
+    } catch (e) {
+      showNotice("儲存並更新報告失敗：" + e.message, "err");
+    }
+  };
+}
+
+if ($("btnAutoAlignNames")) {
+  $("btnAutoAlignNames").onclick = async () => {
+    if (!currentRunId) return;
+    try {
+      const res = await api(`/api/runs/${encodeURIComponent(currentRunId)}/teams/auto-align`, { method: "POST" });
+      await loadRun(currentRunId);
+      showNotice(
+        res.aligned_count > 0
+          ? `✅ 已根據歷史期數已知隊名與 8 職業組合，自動校正了 ${res.aligned_count} 支戰隊名稱！`
+          : "✨ 所有戰隊名稱皆已與歷史期數一致，無需額外校正。",
+        "ok"
+      );
+    } catch (e) {
+      showNotice("歷史隊名對齊失敗：" + e.message, "err");
+    }
+  };
+}
 
 $("btnRunExport").onclick = async () => {
   if (!currentRunId) return showNotice("請先完成 Phase 3", "warn");

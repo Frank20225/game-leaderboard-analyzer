@@ -123,13 +123,18 @@
     <!-- STEP 4 -->
     <section id="step-4" class="section">
       <div class="card">
-        <h2>Step 4：辨識異常與人工校對修正</h2>
+        <h2>Step 4：辨識異常與人工校對修正（支援歷史隊名自動校正 ＆ 一鍵同步更新報告）</h2>
         <div class="row" style="justify-content:space-between;margin-bottom:12px">
           <div class="row">
-            <label><input type="checkbox" id="chkOnlyFlagged"> 僅顯示標記異常/低信心列</label>
+            <input type="search" id="editSearchInput" placeholder="🔍 搜尋排名、隊名或職業..." style="width:220px">
+            <label style="cursor:pointer"><input type="checkbox" id="chkOnlyFlagged"> 僅顯示標記異常/低信心列</label>
             <span class="muted" id="editCountInfo"></span>
           </div>
-          <button class="btn success" id="btnSaveEdits">💾 儲存所有人工修正</button>
+          <div class="row">
+            <button class="btn secondary" id="btnAutoAlignNames" title="比對過去期數已校對的 200 隊名單與 8 職業組合，自動修正 1~2 字元的 OCR 誤差">🔄 與歷史已知隊名自動對齊</button>
+            <button class="btn secondary" id="btnSaveEdits">💾 僅儲存修正</button>
+            <button class="btn success" id="btnSaveAndReexport">🚀 儲存修正並立即更新報告 (前往 Step 5)</button>
+          </div>
         </div>
         <div class="table-scroll">
           <table id="editTeamsTable"></table>

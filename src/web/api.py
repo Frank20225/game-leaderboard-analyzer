@@ -10,6 +10,7 @@ Provides REST endpoints for:
 
 from __future__ import annotations
 
+from collections import Counter
 import base64
 from difflib import SequenceMatcher
 import json
@@ -377,9 +378,85 @@ def start_phase1(req: Phase1Request) -> dict[str, Any]:
     return {"job_id": job_id}
 
 
+def _auto_align_team_names_from_history(current_run_path: Path) -> int:
+    """Auto-correct slight OCR team name jitter using verified/edited team names + 8-class rosters from prior runs."""
+    p3_teams_path = current_run_path / "phase3_icons" / "teams_with_icons.json"
+    if not p3_teams_path.is_file():
+        return 0
+
+    curr_teams = json.loads(p3_teams_path.read_text(encoding="utf-8"))
+    # Collect historical reference teams from other completed runs in OUTPUTS_DIR
+    ref_teams: list[dict[str, Any]] = []
+    for d in sorted(OUTPUTS_DIR.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True):
+        if not d.is_dir() or d.name.startswith("_") or d.resolve() == current_run_path.resolve():
+            continue
+        if "demo_next_week" in d.name:
+            continue
+        ref_p = d / "phase3_icons" / "teams_with_icons.json"
+        if ref_p.is_file():
+            try:
+                ref_teams.extend(json.loads(ref_p.read_text(encoding="utf-8")))
+            except Exception:
+                continue
+
+    if not ref_teams:
+        return 0
+
+    aligned_count = 0
+    for t in curr_teams:
+        curr_name = str(t.get("team_name") or "").strip()
+        if not curr_name or t.get("status") == "edited":
+            continue
+        curr_occs = [o for o in (t.get("occupations") or []) if o]
+        c_curr = Counter(curr_occs)
+        curr_conf = float(t.get("name_conf") or 0.0)
+
+        best_ref_name = None
+        best_score = 0.0
+        for ref in ref_teams:
+            ref_name = str(ref.get("team_name") or "").strip()
+            if not ref_name or ref_name == curr_name:
+                continue
+            ref_conf = 1.0 if ref.get("status") == "edited" else float(ref.get("name_conf") or 0.0)
+            # Only adopt historical name if it was human-edited or had higher OCR confidence
+            if ref_conf < curr_conf and ref.get("status") != "edited":
+                continue
+
+            ref_occs = [o for o in (ref.get("occupations") or []) if o]
+            c_ref = Counter(ref_occs)
+            overlap = sum(min(c_curr[k], c_ref[k]) for k in (c_curr.keys() & c_ref.keys()))
+            name_sim = SequenceMatcher(None, curr_name.lower(), ref_name.lower()).ratio()
+
+            if (name_sim >= 0.84 and overlap >= 4) or (name_sim >= 0.72 and overlap >= 6):
+                combined = name_sim * 0.65 + (overlap / 8.0) * 0.35 + (0.1 if ref.get("status") == "edited" else 0.0)
+                if combined > best_score:
+                    best_score = combined
+                    best_ref_name = ref_name
+
+        if best_ref_name and best_ref_name != curr_name:
+            t["team_name"] = best_ref_name
+            t["name_conf"] = max(curr_conf, 0.95)
+            flags = [f for f in (t.get("flags") or []) if f != "low_name_conf"]
+            t["flags"] = flags
+            if not flags and t.get("status") == "flagged":
+                t["status"] = "verified"
+            aligned_count += 1
+
+    if aligned_count > 0:
+        p3_teams_path.write_text(json.dumps(curr_teams, ensure_ascii=False, indent=2), encoding="utf-8")
+    return aligned_count
+
+
+@app.post("/api/runs/{run_id}/teams/auto-align")
+def auto_align_run_team_names(run_id: str) -> dict[str, Any]:
+    run_path = _resolve_run_dir(run_id)
+    aligned = _auto_align_team_names_from_history(run_path)
+    return {"status": "ok", "aligned_count": aligned}
+
+
 @app.post("/api/pipeline/full")
 def start_full_auto_pipeline(req: Phase1Request) -> dict[str, Any]:
-    """One-Click Full Pipeline: Phase 1 -> Phase 2 (GPU OCR) -> Phase 3 (Auto Icon DB Match) -> Phase 4 & 5 Export."""
+    """One-Click Full Pipeline: Phase 1 -> Phase 2 (GPU OCR) -> Phase 3 (Auto Icon DB Match + History Name Align) -> Phase 4 & 5 Export."""
     video_p = Path(req.video_path)
     if not video_p.is_file():
         raise HTTPException(status_code=400, detail=f"找不到影片檔案: {req.video_path}")
@@ -399,16 +476,23 @@ def start_full_auto_pipeline(req: Phase1Request) -> dict[str, Any]:
 
         teams, issues, audit = run_phase2(out_run_path, progress_cb=_p2_cb)
 
-        report_progress(78.0, "[階段 3/4 職業圖示自動比對] 正在比對 data/icon_db 14 職業圖示庫...")
+        report_progress(78.0, "[階段 3/4 職業圖示自動比對＆歷史隊名校正] 正在比對 14 職業圖示庫與歷史已知隊名...")
         p3_res = run_phase3(out_run_path)
+        aligned_names = _auto_align_team_names_from_history(out_run_path)
 
         report_progress(88.0, f"[階段 4/4 產出報告] 正在產生 {default_report_title()} (7頁Excel + 互動網頁 + 4張圖卡)...")
         manifest = run_phase4_5(out_run_path, report_title=default_report_title())
 
+        # Count how many teams remain flagged after historical name alignment
+        final_teams = json.loads((out_run_path / "phase3_icons" / "teams_with_icons.json").read_text(encoding="utf-8"))
+        flagged_remaining = sum(1 for t in final_teams if t.get("status") == "flagged")
+
         return {
             "run_id": out_run_id,
-            "team_count": len(teams),
+            "team_count": len(final_teams),
             "issue_count": len(issues),
+            "flagged_team_count": flagged_remaining,
+            "aligned_name_count": aligned_names,
             "db_matched_count": p3_res["db_matched_count"],
             "total_icons": p3_res["total_icons"],
             "report_title": manifest["report_title"],
