@@ -30,7 +30,7 @@ from pydantic import BaseModel, Field
 
 from src.analytics.trends import compare_multiple_runs
 from src.config import DOCS_DIR, ICON_DB_DIR, OUTPUTS_DIR, ensure_base_dirs
-from src.export.pages_publisher import publish_to_github_pages
+from src.export.pages_publisher import publish_to_github_pages, publish_trend_to_github_pages
 from src.export.trend_export import export_trend_package
 from src.icons.database import IconDatabase
 from src.layout.detector import LayoutConfig, render_roi_debug_overlay
@@ -236,6 +236,24 @@ def pick_video_file() -> dict[str, str]:
     return {"video_path": selected["path"]}
 
 
+def _compute_period_sort_key(run_id: str, report_title: str, video_name: str) -> str:
+    """Compute a chronological sort key (earliest -> latest) independent of filesystem mtime."""
+    import re
+
+    m_title = re.match(r"^(\d{2})(\d{2})", (report_title or "").strip())
+    if m_title:
+        return f"2026-{m_title.group(1)}-{m_title.group(2)}_{run_id}"
+    if "next_week" in run_id.lower() or "week2" in run_id.lower():
+        return f"2026-11-27_{run_id}"
+    m_run = re.match(r"^(\d{4}-\d{2}-\d{2})", run_id)
+    if m_run:
+        return f"{m_run.group(1)}_{run_id}"
+    m_vid = re.match(r"^(\d{4}-\d{2}-\d{2})", video_name or "")
+    if m_vid:
+        return f"{m_vid.group(1)}_{run_id}"
+    return f"0000-00-00_{run_id}"
+
+
 @app.get("/api/runs")
 def list_runs() -> list[dict[str, Any]]:
     ensure_base_dirs()
@@ -247,6 +265,20 @@ def list_runs() -> list[dict[str, Any]]:
         p2_audit = d / "phase2_extracted" / "audit_report.json"
         p3_file = d / "phase3_icons" / "clusters.json"
         share_manifest = d / "share" / "manifest.json"
+        video_name = (
+            json.loads(p1_file.read_text(encoding="utf-8")).get("metadata", {}).get("filename", "")
+            if p1_file.is_file()
+            else ""
+        )
+        report_title = ""
+        team_count = 0
+        if share_manifest.is_file():
+            try:
+                mf = json.loads(share_manifest.read_text(encoding="utf-8"))
+                report_title = mf.get("report_title", "")
+                team_count = mf.get("overview", {}).get("total_teams", 0)
+            except Exception:
+                pass
         runs.append(
             {
                 "run_id": d.name,
@@ -254,9 +286,10 @@ def list_runs() -> list[dict[str, Any]]:
                 "has_phase2": p2_audit.is_file(),
                 "has_phase3": p3_file.is_file(),
                 "has_export": share_manifest.is_file(),
-                "video_name": json.loads(p1_file.read_text(encoding="utf-8")).get("metadata", {}).get("filename", "")
-                if p1_file.is_file()
-                else "",
+                "video_name": video_name,
+                "report_title": report_title,
+                "team_count": team_count,
+                "period_sort_key": _compute_period_sort_key(d.name, report_title, video_name),
             }
         )
     return runs
@@ -527,6 +560,21 @@ def serve_trend_file(trend_id: str, rel_path: str) -> FileResponse:
     if not str(target).startswith(str(t_path)) or not target.is_file():
         raise HTTPException(status_code=404, detail=f"找不到趨勢檔案: {rel_path}")
     return FileResponse(str(target))
+
+
+@app.post("/api/trends/{trend_id}/publish-pages")
+def publish_trend_pages(trend_id: str, req: PublishPagesRequest) -> dict[str, Any]:
+    t_path = _resolve_trend_dir(trend_id)
+    an_path = t_path / "trend_analytics.json"
+    if not an_path.is_file():
+        raise HTTPException(status_code=400, detail="找不到跨期趨勢資料檔")
+    trend = json.loads(an_path.read_text(encoding="utf-8"))
+    return publish_trend_to_github_pages(
+        trend_dir=t_path,
+        trend=trend,
+        report_slug=req.report_slug,
+        docs_dir=DOCS_DIR,
+    )
 
 
 @app.post("/api/runs/{run_id}/scout-image")

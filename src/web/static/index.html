@@ -169,7 +169,11 @@
         <p class="muted">在無法換人、每人最多 2 隻角色的賽制下，全場職業總數變化極小；系統會以<b>「聯賽當下最新排名 (#1~#200)」</b>為主軸，追蹤<b>八大陣容體系的平均排名爬升、爬升勝率動能、Top 30 席次消長</b>與<b>隊員切換副角色（二號角）</b>的實戰效益！</p>
         <div class="row" style="margin-bottom:12px">
           <input type="text" id="trendTitleInput" class="wide" value="女武神聯賽跨期積分榜與陣容強度趨勢" placeholder="輸入跨期趨勢報告標題">
+          <button class="btn secondary" id="btnReverseTrendOrder" title="一鍵反轉上方早期與下方最新期的先後順序">🔄 對調期數先後順序</button>
           <button class="btn" id="btnRunTrend">📈 產生聯賽積分榜 ＆ 陣容強度趨勢</button>
+        </div>
+        <div class="muted" style="margin-bottom:8px;font-size:0.85rem">
+          💡 <b>期數順序說明</b>：由上往下依序為<b>「較早期（基準期）」→「最新一期（🌟 當下排名與積分榜主軸）」</b>。已自動依報告日期排好順序，你也可以隨時點右側 <code>⬆️ 上移</code> / <code>⬇️ 下移</code> 調整！
         </div>
         <div id="trendRunsList" style="margin-bottom:14px"></div>
       </div>
@@ -180,7 +184,9 @@
           <a class="btn" id="dlTrendExcel" target="_blank">📊 下載聯賽跨期趨勢 Excel (6頁完整版)</a>
           <a class="btn secondary" id="dlTrendHtml" target="_blank">🌐 開啟互動式聯賽積分榜網頁 (trend_report.html)</a>
           <button class="btn secondary" id="btnCopyTrendSummary">📋 複製聯賽趨勢戰報</button>
+          <button class="btn success" id="btnPublishTrendPages">☁️ 發佈跨期趨勢至 docs/（GitHub Pages）</button>
         </div>
+        <div id="trendPagesResultBox" class="status-banner ok" style="display:none;margin-bottom:12px"></div>
         <textarea id="trendSummaryBox" class="summary-box" readonly></textarea>
         <h3>🖼️ 八大陣容體系跨期強度演變 ＆ 14 職業實戰動能圖卡</h3>
         <div class="grid-2" id="trendCardsPreview"></div>

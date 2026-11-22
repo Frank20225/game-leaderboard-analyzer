@@ -1,0 +1,11 @@
+{
+  "report_type": "trend",
+  "slug": "valkyrie-trend-demo",
+  "title": "女武神聯賽跨期積分榜與陣容體系強度趨勢 (Week1 → Week2)",
+  "published_at": "2026-11-22 22:51",
+  "total_teams": 200,
+  "rank_range": "跨 2 期聯賽追蹤",
+  "periods": "11/20 第1週 (200隊基準) → 11/27 模擬第2週 (積分賽演進)",
+  "distinct_occupations": 14,
+  "top_occupation": "🔥 雙法師跨局控場體系 (法師×2)"
+}

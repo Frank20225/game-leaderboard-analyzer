@@ -3,7 +3,9 @@
 > ### 🌐 線上互動戰報（GitHub Pages 點擊即看）
 > - **歷次排位賽戰報總覽首頁**：**https://frank20225.github.io/game-leaderboard-analyzer/**
 > - **最新 200 隊完整分析（1120 女武神環境分析報告）**：**https://frank20225.github.io/game-leaderboard-analyzer/reports/2026-11-20-valkyrie-200/index.html**
->   *(內建：200 隊泰/中/英快篩秒查對手、點擊戰隊展開 BO5 5v5/1v1/3v3/2v2 拆陣推演、Meta 四象限、0/1/2 隻雙開效益圖、協同互斥矩陣，以及「我方 8 人名單健檢模擬器」！)*
+>   *(內建：線上 `Ctrl+V` 截圖秒查對手、200 隊泰/中/英快篩、點擊戰隊展開 BO5 5v5/1v1/3v3/2v2 拆陣推演、Meta 四象限、0/1/2 隻雙開效益圖、協同互斥矩陣，以及「我方 8 人名單健檢模擬器」！)*
+> - **跨期聯賽積分榜＆八大陣容體系強度趨勢（Week 1 → Week 2 演進對比）**：**https://frank20225.github.io/game-leaderboard-analyzer/reports/valkyrie-trend-demo/index.html**
+>   *(內建：以當下最新排名 `#1~#200` 為主軸的聯賽即時積分榜、八大陣容體系跨期均排演變＆爬升勝率、14 職業單帶/雙開強度動能、黑馬爬升榜與成員副角色切換追蹤！)*
 
 ---
 

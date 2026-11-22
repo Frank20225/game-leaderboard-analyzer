@@ -2,6 +2,8 @@
 
 let currentRunId = null;
 let currentState = null;
+let currentTrendId = null;
+let trendOrderedRuns = [];
 
 const $ = (id) => document.getElementById(id);
 
@@ -123,22 +125,85 @@ function renderTrendRunsPicker(runs) {
     $("trendRunsList").innerHTML = '<div class="muted">尚無已完成 Phase 3 的紀錄可做多期比較。</div>';
     return;
   }
-  // Display oldest -> newest by default so chronological order feels natural
-  const ordered = [...ready].reverse();
-  $("trendRunsList").innerHTML = ordered
-    .map(
-      (r, idx) => `
-      <div class="row" style="margin:6px 0;padding:8px 10px;background:var(--panel2);border-radius:8px">
-        <label style="min-width:260px;cursor:pointer">
-          <input type="checkbox" class="trend-chk" data-run-id="${r.run_id}" ${ordered.length >= 2 ? "checked" : ""}>
-          <b>${r.run_id}</b>
-        </label>
-        <input type="text" class="trend-lbl" data-run-id="${r.run_id}" value="第 ${idx + 1} 期 (${r.run_id.slice(0, 10)})" style="width:220px" placeholder="期別名稱">
-        <span class="muted">${r.video_name || ""}</span>
-      </div>`
-    )
-    .join("");
+  // Sort strictly by chronological period_sort_key ascending (earliest period on top -> latest period at bottom!)
+  trendOrderedRuns = [...ready].sort((a, b) =>
+    String(a.period_sort_key || a.run_id).localeCompare(String(b.period_sort_key || b.run_id))
+  );
+  // Default check the latest 2 full runs (so 11/20 real run is Period 1 and 11/27 demo_next_week is Period 2)
+  const defaultCheckedIds = new Set(trendOrderedRuns.slice(-2).map((r) => r.run_id));
+  trendOrderedRuns.forEach((r) => {
+    r._checked = defaultCheckedIds.has(r.run_id);
+    r._customLabel = r.report_title || r.run_id;
+  });
+  drawTrendRunsList();
 }
+
+function drawTrendRunsList() {
+  const checkedIndices = [];
+  trendOrderedRuns.forEach((r, i) => {
+    if (r._checked) checkedIndices.push(i);
+  });
+
+  $("trendRunsList").innerHTML = trendOrderedRuns
+    .map((r, idx) => {
+      const orderPos = checkedIndices.indexOf(idx);
+      const isLatest = orderPos >= 0 && orderPos === checkedIndices.length - 1 && checkedIndices.length >= 2;
+      const orderBadge =
+        orderPos < 0
+          ? '<span class="badge edited" style="min-width:128px;text-align:center">未勾選</span>'
+          : isLatest
+            ? `<span class="badge ok" style="min-width:128px;text-align:center">🌟 第 ${orderPos + 1} 期 (當下最新)</span>`
+            : `<span class="badge" style="min-width:128px;text-align:center;background:#1e293b">第 ${orderPos + 1} 期 (前期基準)</span>`;
+      return `
+      <div class="row trend-row" data-idx="${idx}" style="margin:6px 0;padding:8px 10px;background:var(--panel2);border-radius:8px;justify-content:space-between">
+        <div class="row" style="flex:1">
+          ${orderBadge}
+          <label style="min-width:250px;cursor:pointer">
+            <input type="checkbox" class="trend-chk" data-idx="${idx}" data-run-id="${r.run_id}" ${r._checked ? "checked" : ""}>
+            <b>${r.run_id}</b>
+          </label>
+          <input type="text" class="trend-lbl" data-idx="${idx}" data-run-id="${r.run_id}" value="${(r._customLabel || "").replace(/"/g, "&quot;")}" style="width:240px" placeholder="期別名稱">
+          <span class="muted">${r.team_count ? r.team_count + "隊" : ""} ${r.video_name || ""}</span>
+        </div>
+        <div class="row" style="gap:4px">
+          <button class="btn secondary" style="padding:3px 8px;font-size:0.78rem" onclick="moveTrendRow(${idx}, -1)" ${idx === 0 ? "disabled" : ""} title="移至較早期">⬆️ 上移</button>
+          <button class="btn secondary" style="padding:3px 8px;font-size:0.78rem" onclick="moveTrendRow(${idx}, 1)" ${idx === trendOrderedRuns.length - 1 ? "disabled" : ""} title="移至較晚期">⬇️ 下移</button>
+        </div>
+      </div>`;
+    })
+    .join("");
+
+  document.querySelectorAll(".trend-chk").forEach((chk) => {
+    chk.onchange = () => {
+      syncTrendInputsFromDom();
+      drawTrendRunsList();
+    };
+  });
+  document.querySelectorAll(".trend-lbl").forEach((inp) => {
+    inp.oninput = () => syncTrendInputsFromDom();
+  });
+}
+
+function syncTrendInputsFromDom() {
+  document.querySelectorAll(".trend-chk").forEach((chk) => {
+    const i = parseInt(chk.dataset.idx, 10);
+    if (trendOrderedRuns[i]) trendOrderedRuns[i]._checked = chk.checked;
+  });
+  document.querySelectorAll(".trend-lbl").forEach((inp) => {
+    const i = parseInt(inp.dataset.idx, 10);
+    if (trendOrderedRuns[i]) trendOrderedRuns[i]._customLabel = inp.value;
+  });
+}
+
+window.moveTrendRow = function (idx, dir) {
+  syncTrendInputsFromDom();
+  const target = idx + dir;
+  if (target < 0 || target >= trendOrderedRuns.length) return;
+  const tmp = trendOrderedRuns[idx];
+  trendOrderedRuns[idx] = trendOrderedRuns[target];
+  trendOrderedRuns[target] = tmp;
+  drawTrendRunsList();
+};
 
 function fileUrl(relPath) {
   return `/api/runs/${encodeURIComponent(currentRunId)}/files/${relPath}?t=${Date.now()}`;
@@ -492,12 +557,10 @@ $("btnPublishPages").onclick = async () => {
 };
 
 $("btnRunTrend").onclick = async () => {
-  const snaps = [];
-  document.querySelectorAll(".trend-chk:checked").forEach((chk) => {
-    const rid = chk.dataset.runId;
-    const lblInp = document.querySelector(`.trend-lbl[data-run-id="${rid}"]`);
-    snaps.push({ run_id: rid, label: lblInp ? lblInp.value.trim() : rid });
-  });
+  syncTrendInputsFromDom();
+  const snaps = trendOrderedRuns
+    .filter((r) => r._checked)
+    .map((r) => ({ run_id: r.run_id, label: (r._customLabel || r.run_id).trim() }));
   if (snaps.length < 2) {
     return showNotice("請至少勾選 2 個分析紀錄才能進行多期趨勢對比", "warn");
   }
@@ -513,7 +576,9 @@ $("btnRunTrend").onclick = async () => {
     const m = res.manifest;
     const t = res.trend;
     const tid = m.trend_id;
+    currentTrendId = tid;
     $("trendResultCard").style.display = "block";
+    if ($("trendPagesResultBox")) $("trendPagesResultBox").style.display = "none";
     $("dlTrendExcel").href = `/api/trends/${encodeURIComponent(tid)}/files/trend_report.xlsx`;
     $("dlTrendHtml").href = `/api/trends/${encodeURIComponent(tid)}/files/trend_report.html`;
     $("trendSummaryBox").value = m.summary_text || "";
@@ -566,6 +631,35 @@ $("btnCopyTrendSummary").onclick = async () => {
   await navigator.clipboard.writeText($("trendSummaryBox").value);
   showNotice("📋 跨期趨勢戰報已複製到剪貼簿！", "ok");
 };
+
+if ($("btnReverseTrendOrder")) {
+  $("btnReverseTrendOrder").onclick = () => {
+    syncTrendInputsFromDom();
+    trendOrderedRuns.reverse();
+    drawTrendRunsList();
+  };
+}
+
+if ($("btnPublishTrendPages")) {
+  $("btnPublishTrendPages").onclick = async () => {
+    if (!currentTrendId) return;
+    try {
+      const res = await api(`/api/trends/${encodeURIComponent(currentTrendId)}/publish-pages`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+      const box = $("trendPagesResultBox");
+      if (box) {
+        box.style.display = "block";
+        box.innerHTML =
+          `✅ 跨期聯賽積分榜與趨勢報告已發佈至 <code>docs/reports/${res.slug}/index.html</code> 並更新首頁 <code>docs/index.html</code>！<br>` +
+          `執行 <code>git add docs && git commit && git push</code> 後，即可透過 GitHub Pages 公開分享。`;
+      }
+    } catch (e) {
+      showNotice("發佈跨期趨勢至 docs/ 失敗：" + e.message, "err");
+    }
+  };
+}
 
 async function runImageScoutWithDataUrl(dataUrl) {
   if (!currentRunId) {
