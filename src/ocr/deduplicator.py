@@ -39,6 +39,7 @@ class RowObservation:
     row_img: np.ndarray
     name_img: np.ndarray
     icon_imgs: list[np.ndarray]
+    score_img: np.ndarray | None = None
 
 
 @dataclass

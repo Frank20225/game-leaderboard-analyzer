@@ -23,7 +23,7 @@ from src.ocr.deduplicator import (
     fuse_observations_and_audit,
     infer_missing_ranks_in_frame,
 )
-from src.ocr.text_ocr import MultilingualOcrEngine, preprocess_for_digits
+from src.ocr.text_ocr import MultilingualOcrEngine, get_shared_ocr_engine, preprocess_for_digits
 from src.pipeline_phase1 import run_phase1
 
 
@@ -130,9 +130,9 @@ def run_phase2(
     phase2_dir.mkdir(parents=True, exist_ok=True)
     crops_dir.mkdir(parents=True, exist_ok=True)
 
+    engine = ocr_engine or get_shared_ocr_engine()
     if progress_cb:
-        progress_cb(3.0, "初始化中/英/泰 OCR 模型（首次需下載並載入記憶體）...")
-    engine = ocr_engine or MultilingualOcrEngine(gpu=False)
+        progress_cb(3.0, f"載入中/英/泰 OCR 模型（硬體加速：{engine.device_label}）...")
     # Trigger lazy load of primary reader so progress reflects model load cleanly
     _ = engine.reader_cjk
 
@@ -140,19 +140,56 @@ def run_phase2(
     demo_saved = False
     total_kf = max(1, len(keyframes))
 
-    # Pass 1 (Fast): Read Rank + Score + Icon Signature across keyframes & infer within-frame ranks
+    # Pass 1 (Fast 2-Anchor Rank Scan + Icon Signature):
+    # Since rows in any single frame are strictly consecutive (base, base+1, ..., base+5),
+    # probe 2 anchor rows (row 0 and row 3) first; if they agree on base_rank with high confidence,
+    # skip redundant rank OCR on the remaining 4 rows!
     for kf_pos, kf in enumerate(keyframes):
         if progress_cb:
-            pct = 8.0 + (kf_pos / total_kf) * 44.0
-            progress_cb(pct, f"[1/2 掃描排名與積分] 影格 {kf_pos + 1} / {total_kf} (KF{kf['keyframe_id']})")
+            pct = 8.0 + (kf_pos / total_kf) * 34.0
+            progress_cb(pct, f"[1/2 快速定位影格排名 ({engine.device_label})] 影格 {kf_pos + 1} / {total_kf} (KF{kf['keyframe_id']})")
         frame = cv2.imread(kf["image_path"])
         if frame is None:
             continue
         rows = slice_scrollable_rows(frame, layout)
+        if not rows:
+            continue
+
+        rank_results: dict[int, tuple[int | None, float, str]] = {}
+        anchor_idxs = [0, min(3, len(rows) - 1)] if len(rows) >= 4 else list(range(len(rows)))
+        for a_idx in anchor_idxs:
+            rank_results[a_idx] = engine.read_rank(rows[a_idx].rank_img)
+
+        fast_base: int | None = None
+        if len(anchor_idxs) == 2 and anchor_idxs[0] != anchor_idxs[1]:
+            r0, c0, s0 = rank_results[anchor_idxs[0]]
+            r1, c1, s1 = rank_results[anchor_idxs[1]]
+            if (
+                r0 is not None
+                and r1 is not None
+                and (r1 - r0) == (anchor_idxs[1] - anchor_idxs[0])
+                and r0 >= 1
+                and (c0 >= 0.78 or s0.startswith("badge:"))
+                and (c1 >= 0.78 or s1.startswith("badge:"))
+            ):
+                fast_base = r0 - anchor_idxs[0]
+
+        if fast_base is None:
+            for idx in range(len(rows)):
+                if idx not in rank_results:
+                    rank_results[idx] = engine.read_rank(rows[idx].rank_img)
+
         frame_obs: list[RowObservation] = []
-        for row in rows:
-            rank_val, rank_conf, rank_src = engine.read_rank(row.rank_img)
-            score_val, score_conf, _ = engine.read_score(row.score_img)
+        for idx, row in enumerate(rows):
+            if fast_base is not None and idx not in rank_results:
+                rank_val: int | None = fast_base + idx
+                rank_conf = 0.92
+                rank_src = f"anchor_verified(base={fast_base})"
+                rank_inf = False
+            else:
+                rank_val, rank_conf, rank_src = rank_results[idx]
+                rank_inf = False
+
             sig = compute_icon_strip_signature(row.icon_imgs)
 
             if not demo_saved and rank_val is not None and rank_val >= 4:
@@ -171,24 +208,25 @@ def run_phase2(
                     rank=rank_val,
                     rank_conf=rank_conf,
                     rank_source=rank_src,
-                    rank_inferred=False,
+                    rank_inferred=rank_inf,
                     team_name="",
                     name_conf=0.0,
                     name_source="pending",
-                    score=score_val,
-                    score_conf=score_conf,
+                    score=None,
+                    score_conf=0.0,
                     icon_signature=sig,
                     row_img=row.row_img,
                     name_img=row.name_img,
                     icon_imgs=row.icon_imgs,
+                    score_img=row.score_img,
                 )
             )
-        infer_missing_ranks_in_frame(frame_obs)
+        if fast_base is None:
+            infer_missing_ranks_in_frame(frame_obs)
         all_obs.extend(frame_obs)
 
-    # Pass 2 (Targeted Multilingual Team Name OCR):
-    # Only run CJK/EN + Thai OCR on the top 1-2 sharpest observations per unique rank
-    # (dramatically speeds up 200-team videos while keeping consensus quality high!).
+    # Pass 2 (Targeted Multilingual Team Name + Score OCR on sharpest 1-2 observations per unique rank):
+    # Eliminates duplicate Score & Name OCR across overlapping keyframes while keeping consensus voting!
     by_rank_pre: dict[int, list[RowObservation]] = defaultdict(list)
     for ob in all_obs:
         if ob.rank is not None:
@@ -198,8 +236,11 @@ def run_phase2(
     total_ranks = max(1, len(sorted_ranks))
     for r_pos, rank in enumerate(sorted_ranks):
         if progress_cb:
-            pct = 54.0 + (r_pos / total_ranks) * 38.0
-            progress_cb(pct, f"[2/2 多語系辨識戰隊名稱] 第 #{rank} 名（{r_pos + 1} / {total_ranks} 隊）")
+            pct = 44.0 + (r_pos / total_ranks) * 48.0
+            progress_cb(
+                pct,
+                f"[2/2 辨識隊名與積分 ({engine.device_label})] 第 #{rank} 名（{r_pos + 1} / {total_ranks} 隊）",
+            )
         obs_for_rank = sorted(
             by_rank_pre[rank],
             key=lambda o: (
@@ -209,18 +250,27 @@ def run_phase2(
             ),
             reverse=True,
         )
-        # Run OCR on the sharpest frame first; only run a 2nd frame if confidence < 0.85
         best_ob = obs_for_rank[0]
         res1 = engine.read_team_name(best_ob.name_img)
         best_ob.team_name = res1.text
         best_ob.name_conf = res1.confidence
         best_ob.name_source = res1.source
-        if res1.confidence < 0.85 and len(obs_for_rank) >= 2:
+        if best_ob.score_img is not None:
+            sc1, sc_conf1, _ = engine.read_score(best_ob.score_img)
+            best_ob.score = sc1
+            best_ob.score_conf = sc_conf1
+
+        if len(obs_for_rank) >= 2:
             second_ob = obs_for_rank[1]
-            res2 = engine.read_team_name(second_ob.name_img)
-            second_ob.team_name = res2.text
-            second_ob.name_conf = res2.confidence
-            second_ob.name_source = res2.source
+            if res1.confidence < 0.85:
+                res2 = engine.read_team_name(second_ob.name_img)
+                second_ob.team_name = res2.text
+                second_ob.name_conf = res2.confidence
+                second_ob.name_source = res2.source
+            if (best_ob.score is None or best_ob.score_conf < 0.85) and second_ob.score_img is not None:
+                sc2, sc_conf2, _ = engine.read_score(second_ob.score_img)
+                second_ob.score = sc2
+                second_ob.score_conf = sc_conf2
 
     if progress_cb:
         progress_cb(94.0, "跨影格融合去重、稽核完整性與輸出對照表...")

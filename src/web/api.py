@@ -34,11 +34,11 @@ from src.export.pages_publisher import publish_to_github_pages, publish_trend_to
 from src.export.trend_export import export_trend_package
 from src.icons.database import IconDatabase
 from src.layout.detector import LayoutConfig, render_roi_debug_overlay
-from src.ocr.text_ocr import MultilingualOcrEngine
+from src.ocr.text_ocr import MultilingualOcrEngine, detect_gpu_available, get_shared_ocr_engine
 from src.pipeline_phase1 import run_phase1
 from src.pipeline_phase2 import run_phase2
 from src.pipeline_phase3 import confirm_clusters_and_save_db, run_phase3
-from src.pipeline_phase4_5 import run_phase4_5
+from src.pipeline_phase4_5 import default_report_title, run_phase4_5
 
 TRENDS_DIR = OUTPUTS_DIR / "_trends"
 _SCOUT_OCR_ENGINE: MultilingualOcrEngine | None = None
@@ -157,6 +157,30 @@ class ExportRequest(BaseModel):
 
 class PublishPagesRequest(BaseModel):
     report_slug: str | None = None
+    auto_git_push: bool = True
+
+
+def _auto_git_commit_and_push_docs(commit_msg: str) -> tuple[bool, str]:
+    """Automatically stage docs/, commit, and push to origin/main if inside a git repo."""
+    import subprocess
+
+    repo_root = DOCS_DIR.parent
+    git_candidates = [
+        r"C:\Users\f1991\AppData\Local\Microsoft\WinGet\Packages\Git.MinGit_Microsoft.Winget.Source_8wekyb3d8bbwe\cmd\git.exe",
+        "git",
+    ]
+    git_bin = next((g for g in git_candidates if g == "git" or Path(g).is_file()), "git")
+    env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
+    try:
+        subprocess.run([git_bin, "add", "-A", "docs"], cwd=str(repo_root), env=env, check=True, capture_output=True, text=True, timeout=30)
+        status = subprocess.run([git_bin, "status", "--porcelain", "docs"], cwd=str(repo_root), env=env, capture_output=True, text=True, timeout=15)
+        if not status.stdout.strip():
+            return True, "GitHub Pages 已是最新狀態（無新增變更需推送）"
+        subprocess.run([git_bin, "commit", "-m", commit_msg], cwd=str(repo_root), env=env, check=True, capture_output=True, text=True, timeout=30)
+        subprocess.run([git_bin, "push", "origin", "main"], cwd=str(repo_root), env=env, check=True, capture_output=True, text=True, timeout=60)
+        return True, "已自動執行 git commit 並推送至 GitHub Pages (origin/main)！"
+    except Exception as exc:
+        return False, f"已寫入本機 docs/（自動 git push 略過或失敗：{exc}）"
 
 
 class TrendSnapshotInput(BaseModel):
@@ -202,9 +226,10 @@ def index() -> HTMLResponse:
 
 
 @app.get("/api/health")
-def health() -> dict[str, str]:
+def health() -> dict[str, Any]:
     ensure_base_dirs()
-    return {"status": "ok"}
+    has_gpu, dev_lbl = detect_gpu_available()
+    return {"status": "ok", "gpu_available": has_gpu, "ocr_device": dev_lbl}
 
 
 @app.post("/api/pick-video")
@@ -352,6 +377,48 @@ def start_phase1(req: Phase1Request) -> dict[str, Any]:
     return {"job_id": job_id}
 
 
+@app.post("/api/pipeline/full")
+def start_full_auto_pipeline(req: Phase1Request) -> dict[str, Any]:
+    """One-Click Full Pipeline: Phase 1 -> Phase 2 (GPU OCR) -> Phase 3 (Auto Icon DB Match) -> Phase 4 & 5 Export."""
+    video_p = Path(req.video_path)
+    if not video_p.is_file():
+        raise HTTPException(status_code=400, detail=f"找不到影片檔案: {req.video_path}")
+
+    run_dir = OUTPUTS_DIR / req.run_name if req.run_name else None
+
+    def _work(report_progress):
+        def _p1_cb(p: float, msg: str) -> None:
+            report_progress(p * 0.25, f"[階段 1/4 影格提取] {msg}")
+
+        p1_res = run_phase1(video_p, run_dir=run_dir, progress_cb=_p1_cb)
+        out_run_path = Path(p1_res.summary_json_path).parent.parent
+        out_run_id = out_run_path.name
+
+        def _p2_cb(p: float, msg: str) -> None:
+            report_progress(25.0 + p * 0.50, f"[階段 2/4 多語系 OCR] {msg}")
+
+        teams, issues, audit = run_phase2(out_run_path, progress_cb=_p2_cb)
+
+        report_progress(78.0, "[階段 3/4 職業圖示自動比對] 正在比對 data/icon_db 14 職業圖示庫...")
+        p3_res = run_phase3(out_run_path)
+
+        report_progress(88.0, f"[階段 4/4 產出報告] 正在產生 {default_report_title()} (7頁Excel + 互動網頁 + 4張圖卡)...")
+        manifest = run_phase4_5(out_run_path, report_title=default_report_title())
+
+        return {
+            "run_id": out_run_id,
+            "team_count": len(teams),
+            "issue_count": len(issues),
+            "db_matched_count": p3_res["db_matched_count"],
+            "total_icons": p3_res["total_icons"],
+            "report_title": manifest["report_title"],
+            "audit": audit.to_dict(),
+        }
+
+    job_id = _start_bg_job("full_pipeline", _work)
+    return {"job_id": job_id}
+
+
 @app.post("/api/runs/{run_id}/layout")
 def update_layout(run_id: str, req: LayoutUpdateRequest) -> dict[str, Any]:
     """Allow manual ROI fine-tuning and re-render the debug overlay immediately."""
@@ -483,6 +550,10 @@ def publish_pages(run_id: str, req: PublishPagesRequest) -> dict[str, Any]:
         report_slug=req.report_slug,
         docs_dir=DOCS_DIR,
     )
+    if req.auto_git_push:
+        ok, git_msg = _auto_git_commit_and_push_docs(f"docs(pages): publish {res['slug']}")
+        res["git_pushed"] = ok
+        res["git_message"] = git_msg
     return res
 
 
@@ -569,12 +640,17 @@ def publish_trend_pages(trend_id: str, req: PublishPagesRequest) -> dict[str, An
     if not an_path.is_file():
         raise HTTPException(status_code=400, detail="找不到跨期趨勢資料檔")
     trend = json.loads(an_path.read_text(encoding="utf-8"))
-    return publish_trend_to_github_pages(
+    res = publish_trend_to_github_pages(
         trend_dir=t_path,
         trend=trend,
         report_slug=req.report_slug,
         docs_dir=DOCS_DIR,
     )
+    if req.auto_git_push:
+        ok, git_msg = _auto_git_commit_and_push_docs(f"docs(pages): publish trend {res['slug']}")
+        res["git_pushed"] = ok
+        res["git_message"] = git_msg
+    return res
 
 
 @app.post("/api/runs/{run_id}/scout-image")
@@ -604,11 +680,9 @@ def scout_opponent_by_image(run_id: str, req: ScoutImageRequest) -> dict[str, An
     ocr_text = ""
     if req.use_ocr:
         try:
-            with _SCOUT_OCR_LOCK:
-                if _SCOUT_OCR_ENGINE is None:
-                    _SCOUT_OCR_ENGINE = MultilingualOcrEngine()
-                ocr_res = _SCOUT_OCR_ENGINE.read_team_name(query_img)
-                ocr_text = (ocr_res.text or "").strip()
+            engine = get_shared_ocr_engine()
+            ocr_res = engine.read_team_name(query_img)
+            ocr_text = (ocr_res.text or "").strip()
         except Exception:
             ocr_text = ""
 

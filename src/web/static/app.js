@@ -95,6 +95,13 @@ document.querySelectorAll(".step-btn").forEach((btn) => {
 });
 
 async function refreshRuns(selectRunId = null) {
+  try {
+    const h = await api("/api/health");
+    if ($("gpuDeviceBadge")) {
+      $("gpuDeviceBadge").textContent = "⚡ OCR 引擎：" + (h.ocr_device || "CPU");
+      $("gpuDeviceBadge").className = "badge " + (h.gpu_available ? "ok" : "edited");
+    }
+  } catch (_) {}
   const runs = await api("/api/runs");
   const sel = $("runSelect");
   sel.innerHTML = '<option value="">-- 選擇既有分析紀錄 --</option>';
@@ -435,6 +442,30 @@ $("btnRunPhase1").onclick = async () => {
   }
 };
 
+if ($("btnRunFullAuto")) {
+  $("btnRunFullAuto").onclick = async () => {
+    const vp = $("videoPathInput").value.trim();
+    if (!vp) return showNotice("請先選擇或輸入本機 MP4 影片路徑", "warn");
+    try {
+      const { job_id } = await api("/api/pipeline/full", {
+        method: "POST",
+        body: JSON.stringify({ video_path: vp }),
+      });
+      const res = await pollJob(job_id, "⚡ 一鍵全自動分析（Phase 1 影格提取 → Phase 2 多語系 OCR → Phase 3 圖示自動比對 → Phase 4&5 報告產出）");
+      showNotice(
+        `🎉 全自動分析完成！共擷取 ${res.team_count} 隊（圖示庫自動命中 ${res.db_matched_count}/${res.total_icons} 格），已直接產出「${res.report_title}」！`,
+        "ok"
+      );
+      await refreshRuns(res.run_id);
+      // Automatically jump to Step 5 Export tab so user can immediately open/publish the report!
+      const step5Btn = document.querySelector('.step-btn[data-step="5"]');
+      if (step5Btn) step5Btn.click();
+    } catch (e) {
+      showNotice("全自動分析失敗：" + e.message, "err");
+    }
+  };
+}
+
 $("btnSaveLayout").onclick = async () => {
   if (!currentRunId) return;
   try {
@@ -550,7 +581,7 @@ $("btnPublishPages").onclick = async () => {
     box.style.display = "block";
     box.innerHTML =
       `✅ 已發佈至 <code>docs/reports/${res.slug}/index.html</code> 並更新 <code>docs/index.html</code>！<br>` +
-      `執行 <code>git add docs && git commit && git push</code> 後，即可透過 GitHub Pages 公開分享連結。`;
+      `${res.git_message || "可透過 GitHub Pages 公開分享連結。"}`;
   } catch (e) {
     showNotice("發佈至 docs/ 失敗：" + e.message, "err");
   }
@@ -653,7 +684,7 @@ if ($("btnPublishTrendPages")) {
         box.style.display = "block";
         box.innerHTML =
           `✅ 跨期聯賽積分榜與趨勢報告已發佈至 <code>docs/reports/${res.slug}/index.html</code> 並更新首頁 <code>docs/index.html</code>！<br>` +
-          `執行 <code>git add docs && git commit && git push</code> 後，即可透過 GitHub Pages 公開分享。`;
+          `${res.git_message || "可透過 GitHub Pages 公開分享。"}`;
       }
     } catch (e) {
       showNotice("發佈跨期趨勢至 docs/ 失敗：" + e.message, "err");

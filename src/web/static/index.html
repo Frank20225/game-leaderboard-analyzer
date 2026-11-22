@@ -8,7 +8,10 @@
 </head>
 <body>
   <header class="topbar">
-    <h1>🏆 Game Leaderboard Analyzer</h1>
+    <div class="row">
+      <h1>🏆 Game Leaderboard Analyzer</h1>
+      <span id="gpuDeviceBadge" class="badge ok" style="font-size:0.8rem">⏳ 偵測硬體中...</span>
+    </div>
     <div class="run-picker">
       <span class="muted">目前分析紀錄：</span>
       <select id="runSelect"></select>
@@ -62,7 +65,8 @@
         <div class="row">
           <input type="text" id="videoPathInput" class="wide" placeholder="請點「選擇影片」或貼上本機 MP4 路徑（例如 C:\Users\...\2026-11-21.mp4）">
           <button class="btn secondary" id="btnPickVideo">📂 選擇本機影片</button>
-          <button class="btn" id="btnRunPhase1">▶ 開始 Phase 1 影片分析</button>
+          <button class="btn success" id="btnRunFullAuto" title="自動連續執行 Phase 1 影格提取 → Phase 2 GPU OCR → Phase 3 自動比對 14 職業圖示庫 → Phase 4&5 產出 Excel 與互動報告">⚡ 一鍵全自動分析到底（Phase 1~5）</button>
+          <button class="btn" id="btnRunPhase1">▶ 僅跑 Phase 1 影片分析</button>
         </div>
       </div>
 

@@ -32,13 +32,18 @@ if not exist ".venv\Scripts\python.exe" (
     echo [2/3] Virtual environment .venv already exists.
 )
 
-echo [3/3] Upgrading pip and installing dependencies...
+echo [3/4] Upgrading pip and installing dependencies...
 ".venv\Scripts\python.exe" -m pip install --upgrade pip
 ".venv\Scripts\pip.exe" install -r requirements.txt
 if errorlevel 1 (
     echo [ERROR] Package installation failed.
     pause
     exit /b 1
+)
+
+where nvidia-smi >nul 2>&1 && (
+    echo [4/4] NVIDIA GPU detected! Installing CUDA-enabled PyTorch (cu124)...
+    ".venv\Scripts\pip.exe" install --upgrade torch torchvision --index-url https://download.pytorch.org/whl/cu124
 )
 
 echo.

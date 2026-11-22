@@ -8,12 +8,26 @@ Uses two lazily cached EasyOCR readers:
 from __future__ import annotations
 
 import re
+import threading
 from dataclasses import dataclass
 
 import cv2
 import numpy as np
 
 from src.ocr.rank_badge import classify_rank_badge
+
+
+def detect_gpu_available() -> tuple[bool, str]:
+    """Check if PyTorch CUDA GPU acceleration is available and return (is_available, device_label)."""
+    try:
+        import torch
+
+        if torch.cuda.is_available():
+            dev_name = torch.cuda.get_device_name(0)
+            return True, f"CUDA GPU ({dev_name})"
+    except Exception:
+        pass
+    return False, "CPU"
 
 _ASCII_CLEAN_RE = re.compile(r"^[A-Za-z0-9_.\-\s]+$")
 _THAI_CHAR_RE = re.compile(r"[\u0e00-\u0e7f]")
@@ -71,8 +85,14 @@ def preprocess_for_text(img: np.ndarray, scale: float = 2.0) -> np.ndarray:
 class MultilingualOcrEngine:
     """Cached dual-reader EasyOCR wrapper with dedicated digit & multilingual pipelines."""
 
-    def __init__(self, gpu: bool = False) -> None:
-        self.gpu = gpu
+    def __init__(self, gpu: bool | None = None) -> None:
+        if gpu is None:
+            has_gpu, dev_lbl = detect_gpu_available()
+            self.gpu = has_gpu
+            self.device_label = dev_lbl
+        else:
+            self.gpu = bool(gpu)
+            self.device_label = "CUDA GPU" if self.gpu else "CPU"
         self._reader_cjk = None
         self._reader_th = None
 
@@ -204,3 +224,16 @@ class MultilingualOcrEngine:
             )
 
         return OcrFieldResult(text="", confidence=0.0, source="empty")
+
+
+_SHARED_ENGINE: MultilingualOcrEngine | None = None
+_SHARED_ENGINE_LOCK = threading.Lock()
+
+
+def get_shared_ocr_engine(gpu: bool | None = None) -> MultilingualOcrEngine:
+    """Return a process-wide cached MultilingualOcrEngine singleton to avoid reloading models."""
+    global _SHARED_ENGINE
+    with _SHARED_ENGINE_LOCK:
+        if _SHARED_ENGINE is None:
+            _SHARED_ENGINE = MultilingualOcrEngine(gpu=gpu)
+        return _SHARED_ENGINE
