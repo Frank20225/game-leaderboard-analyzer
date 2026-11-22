@@ -32,9 +32,34 @@ def publish_to_github_pages(
     (target_docs / ".nojekyll").touch(exist_ok=True)
 
     title = analytics.get("report_title", "排位賽職業環境分析報告")
-    slug = _slugify(report_slug or f"{datetime.now().strftime('%Y-%m-%d')}-{title[:24]}")
+
+    # Find existing report folder(s) with the exact same title to prevent duplicate cards on docs/index.html
+    existing_same_title_dirs: list[Path] = []
+    for sub in sorted(reports_root.iterdir()):
+        mp = sub / "meta.json"
+        if sub.is_dir() and mp.is_file():
+            try:
+                m_old = json.loads(mp.read_text(encoding="utf-8"))
+                if m_old.get("title") == title:
+                    existing_same_title_dirs.append(sub)
+            except Exception:
+                continue
+
+    if report_slug:
+        slug = _slugify(report_slug)
+    elif existing_same_title_dirs:
+        # Reuse existing folder slug so re-publishing from Web UI updates in place
+        slug = existing_same_title_dirs[0].name
+    else:
+        slug = _slugify(title[:32])
+
     dest = reports_root / slug
     dest.mkdir(parents=True, exist_ok=True)
+
+    # Remove any other duplicate folders that had the exact same report title
+    for dup_dir in existing_same_title_dirs:
+        if dup_dir.resolve() != dest.resolve() and dup_dir.is_dir():
+            shutil.rmtree(dup_dir, ignore_errors=True)
 
     # Copy interactive single-file HTML report as index.html inside this report folder
     html_src = src_share / "report.html"
