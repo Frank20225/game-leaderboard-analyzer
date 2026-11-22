@@ -69,7 +69,14 @@ def run_phase4_5(
     excel_public_path = write_excel_report(analytics, share_dir / "report_public.xlsx", include_errors_sheet=False)
     # Generate share cards FIRST so html_report can embed 02_copy_count_impact.png inline as Base64
     card_paths = generate_share_cards(analytics, icon_map, share_dir / "cards")
-    html_path = generate_html_report(analytics, icon_map, share_dir / "report.html", cards_dir=share_dir / "cards")
+    crops_dir = run_path / "phase2_extracted" / "crops"
+    html_path = generate_html_report(
+        analytics,
+        icon_map,
+        share_dir / "report.html",
+        cards_dir=share_dir / "cards",
+        crops_dir=crops_dir if crops_dir.is_dir() else None,
+    )
     summary_path = share_dir / "summary.md"
     summary_text = generate_text_summary(analytics, summary_path)
 

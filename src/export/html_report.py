@@ -9,6 +9,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+import cv2
+import numpy as np
+
 
 def _encode_png_b64(path: str | Path) -> str:
     p = Path(path)
@@ -18,11 +21,49 @@ def _encode_png_b64(path: str | Path) -> str:
     return f"data:image/png;base64,{data}"
 
 
+def _compute_name_crop_fingerprint(crop_path: Path) -> dict[str, Any] | None:
+    """Compute a compact 48x12 text silhouette vector + aspect ratio matching browser Canvas logic."""
+    if not crop_path.is_file():
+        return None
+    try:
+        arr = np.fromfile(str(crop_path), dtype=np.uint8)
+        bgr = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+        if bgr is None or bgr.size == 0:
+            return None
+        # Convert BGR to standard luminance matching JS: 0.299*R + 0.587*G + 0.114*B
+        b, g, r = bgr[:, :, 0].astype(np.float32), bgr[:, :, 1].astype(np.float32), bgr[:, :, 2].astype(np.float32)
+        lum = 0.299 * r + 0.587 * g + 0.114 * b
+        l_min, l_max = float(np.min(lum)), float(np.max(lum))
+        norm = (lum - l_min) * 255.0 / max(1.0, l_max - l_min)
+        ys, xs = np.where(norm > 145.0)
+        if len(xs) >= 10 and len(ys) >= 5:
+            x1 = max(0, int(np.percentile(xs, 2)) - 1)
+            x2 = min(norm.shape[1], int(np.percentile(xs, 98)) + 2)
+            y1 = max(0, int(np.percentile(ys, 4)) - 1)
+            y2 = min(norm.shape[0], int(np.percentile(ys, 96)) + 2)
+            roi = norm[y1:y2, x1:x2] if (x2 > x1 + 4 and y2 > y1 + 3) else norm
+        else:
+            roi = norm
+        h_roi, w_roi = roi.shape[:2]
+        aspect = round(float(w_roi) / max(1.0, float(h_roi)), 2)
+        small = cv2.resize(roi.astype(np.float32), (48, 12), interpolation=cv2.INTER_AREA)
+        vec = small.ravel()
+        vec -= float(np.mean(vec))
+        denom = float(np.linalg.norm(vec))
+        if denom < 1e-6:
+            return None
+        q_vec = [int(round(float(v / denom) * 1000)) for v in vec]
+        return {"a": aspect, "v": q_vec}
+    except Exception:
+        return None
+
+
 def generate_html_report(
     analytics: dict[str, Any],
     icon_paths_by_name: dict[str, str],
     output_path: str | Path,
     cards_dir: str | Path | None = None,
+    crops_dir: str | Path | None = None,
 ) -> Path:
     """Build a self-contained single-file interactive HTML report for tournament roster analysis."""
     icons_b64 = {
@@ -35,11 +76,21 @@ def generate_html_report(
         if dp_card.is_file():
             embedded_cards["copy_impact"] = _encode_png_b64(dp_card)
 
+    name_fingerprints: dict[int, dict[str, Any]] = {}
+    if crops_dir is not None:
+        cr_dir = Path(crops_dir)
+        for team in analytics.get("raw_data", []):
+            rk = int(team["rank"])
+            fp = _compute_name_crop_fingerprint(cr_dir / f"rank_{rk:03d}_name.png")
+            if fp is not None:
+                name_fingerprints[rk] = fp
+
     embedded_payload = {
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
         "analytics": {k: v for k, v in analytics.items() if k != "recognition_errors"},
         "icons": icons_b64,
         "cards": embedded_cards,
+        "name_fps": name_fingerprints,
     }
     json_blob = json.dumps(embedded_payload, ensure_ascii=False).replace("</", "<\\/")
     safe_title = html.escape(analytics.get("report_title", "排位賽戰隊排陣分析報告"))
@@ -132,11 +183,33 @@ def generate_html_report(
 
   <section id="tab-raw" class="panel active">
     <div class="card">
-      <h2>完整排行榜資料查詢 ＆ 實戰對手秒查（免打字／泰文友善）</h2>
+      <h2>完整排行榜資料查詢 ＆ 實戰對手秒查（支援線上 Ctrl+V 截圖 OCR／免打泰文）</h2>
+      <div class="scout-box" style="margin-bottom:14px;background:#0f172a;border-color:rgba(56,189,248,.55)">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+          <div>
+            <b>📷 GitHub Pages 線上截圖秒查對手（免開本機伺服器）</b>
+            <div class="sub" style="font-size:0.84rem;margin-top:2px">
+              遊戲中按 <code>Win + Shift + S</code> 框選對手隊名後，直接在此網頁按 <b><code>Ctrl + V</code></b> 貼上！系統會以<b>「0.01秒原圖字形指紋」＋「免費多語系 OCR API (中/英/泰)」</b>雙重鎖定對手並展開 BO5 推演。
+            </div>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+            <select id="ocrModeSelect" style="font-size:0.82rem;padding:6px 10px">
+              <option value="tesseract">⚡ 字形指紋 ＋ Tesseract.js 免費多語系 OCR (免Key)</option>
+              <option value="ocrspace">☁️ 字形指紋 ＋ OCR.space 免費雲端 API</option>
+              <option value="visual">👁️ 極速純原圖字形指紋比對 (0流量/泰文最穩)</option>
+            </select>
+            <input id="ocrSpaceKeyInput" type="text" placeholder="選填 OCR.space 免費 Key" style="display:none;width:175px;font-size:0.82rem;padding:6px 9px">
+            <label class="preset-btn" style="display:inline-flex;align-items:center;gap:4px">
+              📂 選擇或貼上截圖
+              <input type="file" id="onlineScoutFile" accept="image/*" style="display:none">
+            </label>
+          </div>
+        </div>
+        <div id="onlineScoutResult" style="display:none;margin-top:12px;padding-top:10px;border-top:1px solid var(--border)"></div>
+      </div>
       <div class="sub" style="background:#0f172a;border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:12px;line-height:1.6">
-        🎯 <b>實戰排到泰文或無法複製的對手怎麼查？</b><br>
-        1️⃣ 先點下方<b>「語系秒篩」</b>（例如點 <code>🇹🇭 泰文隊</code> 立即縮小範圍）＋<b>「外觀特徵」</b>（含數字 / 字數長短），3 秒內免打泰文即可鎖定對手！<br>
-        2️⃣ <b>點擊表格任一戰隊列</b>，會立即展開該隊的<b>【🎯 BO5 五局（5v5 / 1v1 / 3v3 / 2v2）出場拆陣推演 ＆ 弱點針對情報卡】</b>。
+        🎯 <b>不截圖也能 3 秒查泰文對手：</b>
+        先點下方<b>「語系秒篩」</b>（例如點 <code>🇹🇭 泰文隊</code>）＋<b>「外觀特徵」</b>（含數字 / 字數長短），免打字即可縮小範圍！<b>點擊表格任一戰隊列</b>可展開<b>【🎯 BO5 五局出場推演 ＆ 弱點情報卡】</b>。
       </div>
       <div class="filter-bar" id="scriptFilterBar">
         <span class="sub" style="margin-right:4px">語系秒篩：</span>
@@ -717,6 +790,328 @@ document.getElementById('searchInput').oninput = renderRaw;
 occSel.onchange = renderRaw;
 dpSel.onchange = renderRaw;
 renderRaw();
+
+// GitHub Pages Client-Side Screenshot Paste & Free OCR API (Tesseract.js CDN + OCR.space + Visual Fingerprint)
+(function initOnlineImageScout() {{
+  const NAME_FPS = DATA.name_fps || {{}};
+  const modeSel = document.getElementById('ocrModeSelect');
+  const keyInp = document.getElementById('ocrSpaceKeyInput');
+  const fileInp = document.getElementById('onlineScoutFile');
+  const resBox = document.getElementById('onlineScoutResult');
+
+  if (keyInp) {{
+    keyInp.value = localStorage.getItem('gla_ocrspace_key') || '';
+    keyInp.onchange = () => localStorage.setItem('gla_ocrspace_key', keyInp.value.trim());
+  }}
+  if (modeSel && keyInp) {{
+    modeSel.onchange = () => {{
+      keyInp.style.display = modeSel.value === 'ocrspace' ? 'inline-block' : 'none';
+    }};
+  }}
+
+  function quantile(sortedArr, q) {{
+    if (!sortedArr.length) return 0;
+    const pos = Math.floor((sortedArr.length - 1) * q);
+    return sortedArr[Math.max(0, Math.min(sortedArr.length - 1, pos))];
+  }}
+
+  // Extract 48x12 visual silhouette fingerprint + high-contrast black-on-white OCR canvas from pasted image
+  function preprocessAndExtractFp(imgEl) {{
+    const w = imgEl.naturalWidth || imgEl.width;
+    const h = imgEl.naturalHeight || imgEl.height;
+    const c1 = document.createElement('canvas');
+    c1.width = w; c1.height = h;
+    const ctx1 = c1.getContext('2d');
+    ctx1.drawImage(imgEl, 0, 0);
+    const rgba = ctx1.getImageData(0, 0, w, h).data;
+
+    const lum = new Float32Array(w * h);
+    let lMin = 255, lMax = 0;
+    for (let i = 0, p = 0; i < rgba.length; i += 4, p++) {{
+      const v = 0.299 * rgba[i] + 0.587 * rgba[i + 1] + 0.114 * rgba[i + 2];
+      lum[p] = v;
+      if (v < lMin) lMin = v;
+      if (v > lMax) lMax = v;
+    }}
+    const range = Math.max(1, lMax - lMin);
+    const norm = new Float32Array(w * h);
+    const xs = [], ys = [];
+    for (let y = 0; y < h; y++) {{
+      for (let x = 0; x < w; x++) {{
+        const nv = ((lum[y * w + x] - lMin) * 255) / range;
+        norm[y * w + x] = nv;
+        if (nv > 145) {{ xs.push(x); ys.push(y); }}
+      }}
+    }}
+
+    let x1 = 0, y1 = 0, x2 = w, y2 = h;
+    if (xs.length >= 10 && ys.length >= 5) {{
+      xs.sort((a, b) => a - b);
+      ys.sort((a, b) => a - b);
+      x1 = Math.max(0, quantile(xs, 0.02) - 1);
+      x2 = Math.min(w, quantile(xs, 0.98) + 2);
+      y1 = Math.max(0, quantile(ys, 0.04) - 1);
+      y2 = Math.min(h, quantile(ys, 0.96) + 2);
+      if (x2 <= x1 + 4 || y2 <= y1 + 3) {{ x1 = 0; y1 = 0; x2 = w; y2 = h; }}
+    }}
+
+    const rw = Math.max(1, x2 - x1), rh = Math.max(1, y2 - y1);
+    const aspect = rw / rh;
+
+    // Build normalized ROI canvas and resize to 48x12 for silhouette fingerprint
+    const cRoi = document.createElement('canvas');
+    cRoi.width = rw; cRoi.height = rh;
+    const ctxRoi = cRoi.getContext('2d');
+    const roiImg = ctxRoi.createImageData(rw, rh);
+    for (let yy = 0; yy < rh; yy++) {{
+      for (let xx = 0; xx < rw; xx++) {{
+        const val = Math.round(norm[(y1 + yy) * w + (x1 + xx)]);
+        const idx = (yy * rw + xx) * 4;
+        roiImg.data[idx] = val; roiImg.data[idx + 1] = val; roiImg.data[idx + 2] = val; roiImg.data[idx + 3] = 255;
+      }}
+    }}
+    ctxRoi.putImageData(roiImg, 0, 0);
+
+    const FW = 48, FH = 12;
+    const cFp = document.createElement('canvas');
+    cFp.width = FW; cFp.height = FH;
+    const ctxFp = cFp.getContext('2d');
+    ctxFp.drawImage(cRoi, 0, 0, FW, FH);
+    const fpData = ctxFp.getImageData(0, 0, FW, FH).data;
+    const vec = new Float32Array(FW * FH);
+    let sum = 0;
+    for (let i = 0, p = 0; i < fpData.length; i += 4, p++) {{
+      vec[p] = fpData[i];
+      sum += fpData[i];
+    }}
+    const mean = sum / (FW * FH);
+    let normSq = 0;
+    for (let p = 0; p < vec.length; p++) {{
+      vec[p] -= mean;
+      normSq += vec[p] * vec[p];
+    }}
+    const denom = Math.sqrt(normSq) || 1;
+    for (let p = 0; p < vec.length; p++) vec[p] /= denom;
+
+    // Also build a 3x upscaled, padded black-text-on-white-bg image for high-accuracy OCR
+    const scale = 3, pad = 18;
+    const cOcr = document.createElement('canvas');
+    cOcr.width = rw * scale + pad * 2;
+    cOcr.height = rh * scale + pad * 2;
+    const ctxOcr = cOcr.getContext('2d');
+    ctxOcr.fillStyle = '#ffffff';
+    ctxOcr.fillRect(0, 0, cOcr.width, cOcr.height);
+    // Invert normalized ROI (bright text -> dark ink on white paper)
+    const invImg = ctxRoi.createImageData(rw, rh);
+    for (let i = 0; i < roiImg.data.length; i += 4) {{
+      const v = roiImg.data[i];
+      const ink = v > 130 ? Math.max(0, 255 - v) : 255;
+      invImg.data[i] = ink; invImg.data[i + 1] = ink; invImg.data[i + 2] = ink; invImg.data[i + 3] = 255;
+    }}
+    const cInv = document.createElement('canvas');
+    cInv.width = rw; cInv.height = rh;
+    cInv.getContext('2d').putImageData(invImg, 0, 0);
+    ctxOcr.drawImage(cInv, pad, pad, rw * scale, rh * scale);
+
+    return {{ vec, aspect, ocrDataUrl: cOcr.toDataURL('image/png') }};
+  }}
+
+  function calcTextSim(a, b) {{
+    const s1 = String(a || '').toLowerCase().replace(/[\s_\-\.]+/g, '');
+    const s2 = String(b || '').toLowerCase().replace(/[\s_\-\.]+/g, '');
+    if (!s1 || !s2) return 0;
+    if (s1 === s2) return 1.0;
+    if (s1.includes(s2) || s2.includes(s1)) {{
+      return Math.max(0.84, Math.min(s1.length, s2.length) / Math.max(s1.length, s2.length));
+    }}
+    // Levenshtein edit similarity
+    const m = s1.length, n = s2.length;
+    const dp = Array.from({{ length: m + 1 }}, () => new Int32Array(n + 1));
+    for (let i = 0; i <= m; i++) dp[i][0] = i;
+    for (let j = 0; j <= n; j++) dp[0][j] = j;
+    for (let i = 1; i <= m; i++) {{
+      for (let j = 1; j <= n; j++) {{
+        const cost = s1[i - 1] === s2[j - 1] ? 0 : 1;
+        dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost);
+      }}
+    }}
+    return Math.max(0, 1 - dp[m][n] / Math.max(m, n));
+  }}
+
+  function rankTeamsByFpAndText(fp, ocrText) {{
+    const cleanOcr = String(ocrText || '').trim();
+    const scored = A.raw_data.map(team => {{
+      const tfp = NAME_FPS[team.rank];
+      let visSim = 0;
+      if (tfp && tfp.v && fp && fp.vec) {{
+        let dot = 0;
+        for (let i = 0; i < fp.vec.length && i < tfp.v.length; i++) {{
+          dot += fp.vec[i] * (tfp.v[i] / 1000.0);
+        }}
+        // Penalize large aspect-ratio mismatch (e.g. short 3-char name vs long 12-char name)
+        const aspectRatio = Math.min(fp.aspect, tfp.a) / Math.max(0.1, Math.max(fp.aspect, tfp.a));
+        visSim = Math.max(0, dot) * (0.75 + 0.25 * aspectRatio);
+      }}
+      const txtSim = cleanOcr ? calcTextSim(cleanOcr, team.team_name) : 0;
+      const combined = cleanOcr
+        ? Math.max(txtSim, visSim * 0.92, txtSim * 0.65 + visSim * 0.35)
+        : visSim;
+      const reasons = [];
+      if (txtSim >= 0.42) reasons.push(`OCR文字吻合 ${{Math.round(txtSim * 100)}}%`);
+      if (visSim >= 0.35) reasons.push(`原圖字形吻合 ${{Math.round(visSim * 100)}}%`);
+      return {{
+        team,
+        combined,
+        txtSim,
+        visSim,
+        reason: reasons.join(' ＋ ') || `字形相似度 ${{Math.round(combined * 100)}}%`,
+      }};
+    }});
+    scored.sort((a, b) => b.combined - a.combined || a.team.rank - b.team.rank);
+    return scored.slice(0, 5);
+  }}
+
+  window.lockAndExpandScoutTeam = function(rank, name) {{
+    activeScript = 'all';
+    activeFeat = 'all';
+    document.querySelectorAll('#scriptFilterBar .chip-btn').forEach(b => b.classList.toggle('active', b.dataset.script === 'all'));
+    document.querySelectorAll('#featFilterBar .chip-btn').forEach(b => b.classList.toggle('active', b.dataset.feat === 'all'));
+    document.getElementById('searchInput').value = '#' + rank;
+    expandedRanks.add(rank);
+    renderRaw();
+    document.getElementById('rawTable').scrollIntoView({{ behavior: 'smooth', block: 'start' }});
+  }};
+
+  function renderOnlineScoutMatches(rawDataUrl, ocrText, statusMsg, matches) {{
+    resBox.style.display = 'block';
+    resBox.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <img src="${{rawDataUrl}}" alt="pasted" style="height:32px;border-radius:6px;border:1px solid var(--accent)">
+          <span>${{statusMsg}}</span>
+          ${{ocrText ? `<span>｜OCR 辨識文字：<code style="color:var(--accent);font-weight:700">${{esc(ocrText)}}</code></span>` : ''}}
+        </div>
+        <button class="chip-btn" onclick="document.getElementById('onlineScoutResult').style.display='none'">✖ 關閉</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>吻合度</th><th>排名</th><th>戰隊名稱</th><th>對方 8 職業陣容（金框＝雙開）</th><th>操作</th></tr></thead>
+          <tbody>
+            ${{matches.map((m, idx) => {{
+              const t = m.team;
+              const cnts = {{}};
+              (t.occupations || []).forEach(o => cnts[o] = (cnts[o] || 0) + 1);
+              return `<tr style="${{idx === 0 ? 'background:rgba(56,189,248,.13)' : ''}}">
+                <td><span class="q-tag ${{idx === 0 ? 'q-t0' : 'q-dark'}}">${{esc(m.reason)}}</span></td>
+                <td><b>#${{t.rank}}</b></td>
+                <td><b>${{esc(t.team_name)}}</b></td>
+                <td>${{t.occupations.map(o => `<span class="pill ${{cnts[o]>=2?'dp':''}}">${{ico(o)}}<span>${{esc(o)}}</span></span>`).join('')}}</td>
+                <td><button class="preset-btn" style="padding:4px 10px;font-size:0.78rem" onclick="lockAndExpandScoutTeam(${{t.rank}})">🎯 展開 BO5 拆陣</button></td>
+              </tr>`;
+            }}).join('')}}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }}
+
+  let tesseractPromise = null;
+  function loadTesseractJs() {{
+    if (window.Tesseract) return Promise.resolve(window.Tesseract);
+    if (tesseractPromise) return tesseractPromise;
+    tesseractPromise = new Promise((resolve, reject) => {{
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+      s.onload = () => resolve(window.Tesseract);
+      s.onerror = () => reject(new Error('無法載入 Tesseract.js CDN'));
+      document.head.appendChild(s);
+    }});
+    return tesseractPromise;
+  }}
+
+  async function runFreeOcrApi(ocrDataUrl, mode) {{
+    if (mode === 'visual') return '';
+    if (mode === 'ocrspace') {{
+      const apiKey = (keyInp && keyInp.value.trim()) || 'helloworld';
+      const form = new FormData();
+      form.append('base64Image', ocrDataUrl);
+      form.append('language', 'cht');
+      form.append('OCREngine', '2');
+      form.append('scale', 'true');
+      const resp = await fetch('https://api.ocr.space/parse/image', {{
+        method: 'POST',
+        headers: {{ 'apikey': apiKey }},
+        body: form,
+      }});
+      const json = await resp.json();
+      const parsed = json && json.ParsedResults && json.ParsedResults[0];
+      return (parsed && parsed.ParsedText ? parsed.ParsedText : '').replace(/\s+/g, ' ').trim();
+    }}
+    // Default: Free Serverless Browser OCR via Tesseract.js (chi_tra + eng + tha)
+    const Tesseract = await loadTesseractJs();
+    const res = await Tesseract.recognize(ocrDataUrl, 'chi_tra+eng+tha');
+    return (res && res.data && res.data.text ? res.data.text : '').replace(/\s+/g, ' ').trim();
+  }}
+
+  function handleScreenshotDataUrl(rawDataUrl) {{
+    // Switch to Tab 1 if user pasted while viewing another tab
+    document.querySelector('.tab[data-tab="raw"]').click();
+    const img = new Image();
+    img.onload = async () => {{
+      const fp = preprocessAndExtractFp(img);
+      const mode = modeSel ? modeSel.value : 'tesseract';
+      // 1. Instant 0.01s Visual Fingerprint Top 5
+      const initialMatches = rankTeamsByFpAndText(fp, '');
+      const statusTxt = mode === 'visual'
+        ? '✅ 已完成 200 隊原圖字形指紋比對'
+        : '⏳ 已先列出字形最吻合前 5 隊，正在呼叫免費多語系 OCR API 強化精準度...';
+      renderOnlineScoutMatches(rawDataUrl, '', statusTxt, initialMatches);
+
+      if (mode !== 'visual') {{
+        try {{
+          const ocrText = await runFreeOcrApi(fp.ocrDataUrl, mode);
+          const finalMatches = rankTeamsByFpAndText(fp, ocrText);
+          renderOnlineScoutMatches(rawDataUrl, ocrText, '✅ 雙引擎（免費 OCR API ＋ 原圖字形指紋）比對完成', finalMatches);
+          if (finalMatches.length > 0 && finalMatches[0].combined >= 0.45) {{
+            expandedRanks.add(finalMatches[0].team.rank);
+            renderRaw();
+          }}
+        }} catch (err) {{
+          renderOnlineScoutMatches(rawDataUrl, '', `⚠️ OCR API 連線逾時（${{esc(err.message)}}），已自動採用「原圖字形指紋比對」結果`, initialMatches);
+        }}
+      }} else if (initialMatches.length > 0) {{
+        expandedRanks.add(initialMatches[0].team.rank);
+        renderRaw();
+      }}
+    }};
+    img.src = rawDataUrl;
+  }}
+
+  window.addEventListener('paste', ev => {{
+    const items = (ev.clipboardData && ev.clipboardData.items) || [];
+    for (const item of items) {{
+      if (item.type && item.type.startsWith('image/')) {{
+        const file = item.getAsFile();
+        if (!file) continue;
+        const reader = new FileReader();
+        reader.onload = () => handleScreenshotDataUrl(reader.result);
+        reader.readAsDataURL(file);
+        ev.preventDefault();
+        break;
+      }}
+    }}
+  }});
+
+  if (fileInp) {{
+    fileInp.onchange = ev => {{
+      const file = ev.target.files && ev.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => handleScreenshotDataUrl(reader.result);
+      reader.readAsDataURL(file);
+    }};
+  }}
+}})();
 
 // Tab 6: My 8-Player Roster Builder & Evaluator
 (function initRosterBuilder() {{
