@@ -154,6 +154,39 @@ def generate_html_report(
   svg.quad {{ width: 100%; max-width: 960px; height: auto; display: block; margin: 0 auto; background: #0f172a; border-radius: 12px; border: 1px solid var(--border); }}
   .heat-cell {{ text-align: center; font-weight: 700; border-radius: 4px; }}
   .scout-box {{ background: #0f172a; border: 1px solid var(--accent); border-radius: 12px; padding: 14px 16px; margin: 4px 0; }}
+  .scout-cols {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap: 12px; margin-top: 10px; }}
+  .scout-col {{ background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 11px 13px; font-size: 0.86rem; line-height: 1.68; }}
+  .scout-col.threat {{ border-left: 3px solid var(--accent2); }}
+  .scout-col.gap {{ border-left: 3px solid var(--green); }}
+  .scout-col h4 {{ margin: 0 0 6px; font-size: 0.9rem; }}
+  .my-team-bar {{ background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(74, 222, 128, 0.45); border-radius: 12px; padding: 12px 15px; margin-bottom: 12px; }}
+  .my-team-custom {{ margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); display: none; }}
+  .my-team-custom.open {{ display: block; }}
+  .custom-slots {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(125px, 1fr)); gap: 8px; margin: 8px 0; }}
+  .custom-slots select {{ padding: 6px 8px; font-size: 0.84rem; }}
+  tr.team-row.is-my-team td {{ background: rgba(74, 222, 128, 0.11); }}
+  .h2h-box {{ background: linear-gradient(135deg, rgba(56,189,248,.11), rgba(74,222,128,.08)); border: 1px solid rgba(56,189,248,.55); border-radius: 10px; padding: 11px 14px; margin: 10px 0 8px; }}
+  .h2h-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(195px, 1fr)); gap: 8px; margin-top: 8px; }}
+  .h2h-item {{ background: #0b1120; border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; font-size: 0.83rem; }}
+  .h2h-item .h-lbl {{ color: var(--muted); font-size: 0.76rem; margin-bottom: 2px; }}
+  .h2h-adv {{ border-color: rgba(74,222,128,.55); }}
+  .h2h-warn {{ border-color: rgba(248,113,113,.55); }}
+  .cutoff-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(175px, 1fr)); gap: 10px; margin: 12px 0 16px; }}
+  .cutoff-pill {{ background: #0f172a; border: 1px solid var(--border); border-radius: 10px; padding: 11px 13px; }}
+  .cutoff-pill .c-rank {{ color: var(--muted); font-size: 0.8rem; font-weight: 600; }}
+  .cutoff-pill .c-score {{ font-size: 1.25rem; font-weight: 800; color: var(--accent2); margin: 2px 0; }}
+  .cutoff-pill .c-tie {{ font-size: 0.78rem; color: #cbd5e1; }}
+  .density-bar-wrap {{ width: 100%; background: #0b1120; border-radius: 999px; height: 14px; overflow: hidden; border: 1px solid var(--border); }}
+  .density-bar {{ height: 100%; background: linear-gradient(90deg, #38bdf8, #818cf8); border-radius: 999px; }}
+  .bracket-kpis {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(195px, 1fr)); gap: 10px; margin: 12px 0; }}
+  .bracket-kpi {{ background: #0f172a; border: 1px solid var(--border); border-radius: 10px; padding: 11px 13px; }}
+  .bracket-kpi .b-lbl {{ color: var(--muted); font-size: 0.8rem; }}
+  .bracket-kpi .b-val {{ font-size: 1.2rem; font-weight: 700; color: var(--text); margin: 3px 0; }}
+  .bracket-kpi .b-sub {{ font-size: 0.78rem; color: var(--muted); }}
+  .bracket-occ-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 8px; margin-top: 10px; }}
+  .bracket-occ-row {{ background: #0f172a; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 0.83rem; }}
+  .score-filter-banner {{ display: none; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; background: rgba(245,158,11,.13); border: 1px solid rgba(245,158,11,.55); border-radius: 10px; padding: 8px 12px; margin-bottom: 10px; font-size: 0.86rem; }}
+  .score-filter-banner.open {{ display: flex; }}
   .scout-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; margin-top: 10px; }}
   .bo5-card {{ background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }}
   .bo5-card h4 {{ margin: 0 0 6px; font-size: 0.88rem; color: var(--accent); }}
@@ -218,6 +251,35 @@ def generate_html_report(
         </div>
         <div id="onlineScoutResult" style="display:none;margin-top:12px;padding-top:10px;border-top:1px solid var(--border)"></div>
       </div>
+
+      <div class="my-team-bar" id="myTeamBar">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+          <div id="myTeamStatus" style="font-size:0.88rem"></div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+            <select id="myTeamSelect" style="font-size:0.82rem;padding:6px 10px;max-width:250px"></select>
+            <button class="chip-btn" id="btnToggleCustomMyTeam" type="button">✏️ 自選 8 職業（榜外隊適用）</button>
+            <button class="chip-btn" id="btnClearMyTeam" type="button" style="display:none;border-color:rgba(248,113,113,.55);color:#fca5a5">✖ 解除鎖定</button>
+          </div>
+        </div>
+        <div class="my-team-custom" id="myTeamCustomBox">
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:6px">
+            <span class="sub" style="font-size:0.82rem">我方隊名（選填）：</span>
+            <input id="customMyTeamName" type="text" placeholder="例如：我方戰隊" style="padding:5px 9px;font-size:0.83rem;width:180px">
+            <span class="sub" style="font-size:0.8rem">※ 格 1～5 為預設先發、格 6～8 為替補（同職業上限 2 隻）</span>
+          </div>
+          <div class="custom-slots" id="customMyTeamSlots"></div>
+          <div style="display:flex;gap:8px;align-items:center;margin-top:6px">
+            <button class="preset-btn" id="btnSaveCustomMyTeam" type="button" style="padding:5px 12px;font-size:0.82rem">💾 儲存並鎖定我方陣容</button>
+            <span class="sub" id="customMyTeamWarn" style="color:var(--red);font-size:0.82rem"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="score-filter-banner" id="scoreFilterBanner">
+        <span id="scoreFilterText"></span>
+        <button class="chip-btn" id="btnClearScoreFilter" type="button">✖ 清除積分篩選（恢復顯示全部）</button>
+      </div>
+
       <div class="sub" style="background:#0f172a;border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:12px;line-height:1.6">
         🎯 <b>不截圖也能 3 秒查泰文對手：</b>
         先點下方<b>「語系秒篩」</b>（例如點 <code>🇹🇭 泰文隊</code>）＋<b>「外觀特徵」</b>（含數字 / 字數長短），免打字即可縮小範圍！<b>點擊表格任一戰隊列</b>可展開<b>【🎯 對手陣容特徵 ＆ 實戰對局提醒卡】</b>。
@@ -290,6 +352,37 @@ def generate_html_report(
         <h3 style="font-size:0.98rem;margin:10px 0 6px">戰隊「雙職業組數」策略結構（8 異職 vs 1 / 2 / 3 組雙職業）</h3>
         <div class="table-wrap"><table id="dpStructTable"></table></div>
       </details>
+    </div>
+
+    <div class="card" id="scoreBracketCard">
+      <h2>🏆 積分門檻線 ＆ 同分圈假想敵環境 <span class="sub" style="font-size:0.82rem">教練備戰專區：看卡位分數線與我方會撞到的真實對手生態</span></h2>
+      <div id="cutoffGrid" class="cutoff-grid"></div>
+      <details style="margin-bottom:16px">
+        <summary style="cursor:pointer;color:var(--accent);font-weight:600">📊 展開查看各積分同分擠壓密度表（點擊任一積分可立即篩選該分數段）</summary>
+        <div class="table-wrap" style="margin-top:10px"><table id="scoreDensityTable"></table></div>
+      </details>
+      <div style="border-top:1px solid var(--border);padding-top:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:10px">
+          <div>
+            <b style="font-size:0.98rem">🎯 同分圈假想敵分析（決定本週團練重點）</b>
+            <div class="sub" style="font-size:0.83rem">點選目標分數段或自訂區間，立即對比「會撞到的對手」與「全服平均」的職業差異。</div>
+          </div>
+          <button class="preset-btn" id="btnJumpBracketToRaw" type="button" style="padding:6px 12px;font-size:0.82rem">🔍 在排行榜查看此同分圈對手</button>
+        </div>
+        <div class="filter-bar" id="bracketPresetBar"></div>
+        <div class="controls" style="margin-bottom:10px">
+          <span class="sub" style="font-size:0.84rem">自訂積分區間：</span>
+          <select id="bracketMinScore" style="padding:6px 10px;font-size:0.85rem"></select>
+          <span class="sub">～</span>
+          <select id="bracketMaxScore" style="padding:6px 10px;font-size:0.85rem"></select>
+          <span class="sub" id="bracketMetaText" style="font-weight:600;color:var(--accent)"></span>
+        </div>
+        <div class="bracket-kpis" id="bracketKpiGrid"></div>
+        <div style="margin-top:8px">
+          <div class="sub" style="font-size:0.83rem;margin-bottom:4px"><b>該同分圈各職業出場率（括號為相較全服平均之增減）：</b></div>
+          <div class="bracket-occ-grid" id="bracketOccGrid"></div>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -464,65 +557,358 @@ document.getElementById('dpStructTable').innerHTML =
   '<thead><tr><th>雙職業組數配置</th><th>隊伍數</th><th>佔比</th><th>平均排名</th><th>中位排名</th><th>最高排名</th><th>Top 10 隊數</th></tr></thead><tbody>' +
   A.double_pick_structure.map(d => `<tr><td><b>${{esc(d.label)}}</b></td><td>${{d.team_count}}</td><td>${{pct(d.team_rate)}}</td><td><b>#${{d.avg_rank}}</b></td><td>#${{d.median_rank}}</td><td>#${{d.best_rank}}</td><td>${{d.top10_count}}</td></tr>`).join('') + '</tbody>';
 
-// Opponent Roster Feature & Tactical Reminder Card Generator
+// ============================================================
+// C3: Coach My-Team Lock & 10-Second Objective Head-to-Head
+// ============================================================
+const MY_TEAM_KEY = 'gla_my_team_v1';
+const DUEL_CLASSES = ['賢者', '流氓', '騎士', '武僧'];
+const ALL_OCC_NAMES = A.occupation_frequency.map(r => r.occupation);
+let myTeam = null;
+let activeScoreRange = null; // { min, max } when jumping from Tab 2 C5 bracket
+
+function loadMyTeam() {{
+  try {{
+    const raw = localStorage.getItem(MY_TEAM_KEY);
+    if (!raw) return null;
+    const obj = JSON.parse(raw);
+    if (!obj) return null;
+    if (obj.mode === 'rank' && obj.rank) {{
+      const found = A.raw_data.find(t => t.rank === Number(obj.rank) && (!obj.team_name || t.team_name === obj.team_name))
+        || A.raw_data.find(t => t.team_name === obj.team_name);
+      if (found) {{
+        return {{
+          mode: 'rank',
+          rank: found.rank,
+          team_name: found.team_name,
+          score: found.score,
+          occupations: (found.occupations || []).filter(Boolean),
+        }};
+      }}
+    }}
+    if (Array.isArray(obj.occupations) && obj.occupations.length) {{
+      return {{
+        mode: 'custom',
+        rank: null,
+        team_name: obj.team_name || '我方自選陣容',
+        score: null,
+        occupations: obj.occupations.filter(Boolean),
+      }};
+    }}
+  }} catch (e) {{}}
+  return null;
+}}
+
+function saveMyTeam(obj) {{
+  myTeam = obj;
+  try {{
+    if (obj) localStorage.setItem(MY_TEAM_KEY, JSON.stringify(obj));
+    else localStorage.removeItem(MY_TEAM_KEY);
+  }} catch (e) {{}}
+  renderMyTeamBar();
+  renderRaw();
+  if (typeof renderBracketPresets === 'function') renderBracketPresets();
+}}
+
+window.setMyTeamByRank = function(rank, ev) {{
+  if (ev) ev.stopPropagation();
+  const found = A.raw_data.find(t => t.rank === Number(rank));
+  if (!found) return;
+  saveMyTeam({{
+    mode: 'rank',
+    rank: found.rank,
+    team_name: found.team_name,
+    score: found.score,
+    occupations: (found.occupations || []).filter(Boolean),
+  }});
+}};
+
+function countOccs(occs) {{
+  const m = {{}};
+  (occs || []).filter(Boolean).forEach(o => m[o] = (m[o] || 0) + 1);
+  return m;
+}}
+
+function renderMyTeamBar() {{
+  const statusEl = document.getElementById('myTeamStatus');
+  const selEl = document.getElementById('myTeamSelect');
+  const clrBtn = document.getElementById('btnClearMyTeam');
+  if (!statusEl || !selEl) return;
+
+  if (myTeam) {{
+    const cnts = countOccs(myTeam.occupations);
+    const doubles = Object.keys(cnts).filter(o => cnts[o] >= 2);
+    const rankTag = myTeam.rank ? `#${{myTeam.rank}} ` : '自選 ';
+    const scoreTag = myTeam.score !== null && myTeam.score !== undefined ? `（${{myTeam.score}}分）` : '';
+    statusEl.innerHTML = `🛡️ <b style="color:var(--green)">已鎖定我方戰隊：${{rankTag}}${{esc(myTeam.team_name)}}${{scoreTag}}</b>
+      <span class="sub" style="margin-left:6px">雙職業：${{doubles.length ? doubles.map(d => `${{d}}×2`).join('、') : '無'}}</span>
+      <div style="margin-top:5px">${{myTeam.occupations.map(o => `<span class="pill ${{cnts[o]>=2?'dp':''}}">${{ico(o)}}<span>${{esc(o)}}</span></span>`).join('')}}</div>`;
+    selEl.value = myTeam.mode === 'rank' && myTeam.rank ? String(myTeam.rank) : '';
+    if (clrBtn) clrBtn.style.display = 'inline-block';
+  }} else {{
+    statusEl.innerHTML = `🛡️ <b>教練對位模式（未鎖定我方隊伍）</b> <span class="sub">— 選擇我方戰隊或手動自選 8 職業後，展開任何對手（或截圖秒查）將自動顯示「10 秒客觀對位對照」</span>`;
+    selEl.value = '';
+    if (clrBtn) clrBtn.style.display = 'none';
+  }}
+}}
+
+function initMyTeamControls() {{
+  const selEl = document.getElementById('myTeamSelect');
+  const customBox = document.getElementById('myTeamCustomBox');
+  const slotsEl = document.getElementById('customMyTeamSlots');
+  const nameInp = document.getElementById('customMyTeamName');
+  const warnEl = document.getElementById('customMyTeamWarn');
+  if (!selEl) return;
+
+  selEl.innerHTML = '<option value="">-- 從排行榜鎖定我方戰隊 --</option>' +
+    A.raw_data.map(t => `<option value="${{t.rank}}">#${{t.rank}} ${{esc(t.team_name)}} (${{t.score ?? '-'}}分)</option>`).join('');
+  selEl.onchange = () => {{
+    if (!selEl.value) return;
+    window.setMyTeamByRank(Number(selEl.value));
+    if (customBox) customBox.classList.remove('open');
+  }};
+
+  if (slotsEl) {{
+    const opts = '<option value="">(空位)</option>' + ALL_OCC_NAMES.map(o => `<option value="${{esc(o)}}">${{esc(o)}}</option>`).join('');
+    slotsEl.innerHTML = Array.from({{ length: 8 }}, (_, i) => `
+      <div>
+        <div class="sub" style="font-size:0.75rem;margin-bottom:2px">${{i < 5 ? `先發格 ${{i + 1}}` : `替補格 ${{i + 1}}`}}</div>
+        <select class="custom-occ-sel">${{opts}}</select>
+      </div>`).join('');
+  }}
+
+  const btnToggle = document.getElementById('btnToggleCustomMyTeam');
+  if (btnToggle && customBox) {{
+    btnToggle.onclick = () => {{
+      customBox.classList.toggle('open');
+      if (customBox.classList.contains('open') && myTeam) {{
+        if (nameInp) nameInp.value = myTeam.team_name || '';
+        const sels = slotsEl.querySelectorAll('.custom-occ-sel');
+        sels.forEach((s, i) => s.value = (myTeam.occupations && myTeam.occupations[i]) || '');
+      }}
+    }};
+  }}
+
+  const btnSave = document.getElementById('btnSaveCustomMyTeam');
+  if (btnSave) {{
+    btnSave.onclick = () => {{
+      const picked = [...slotsEl.querySelectorAll('.custom-occ-sel')].map(s => s.value).filter(Boolean);
+      if (picked.length < 5) {{
+        warnEl.textContent = '請至少選擇 5 名先發職業。';
+        return;
+      }}
+      const c = countOccs(picked);
+      const over = Object.keys(c).filter(k => c[k] > 2);
+      if (over.length) {{
+        warnEl.textContent = `違反賽制上限：${{over.join('、')}} 超過 2 隻！`;
+        return;
+      }}
+      warnEl.textContent = '';
+      customBox.classList.remove('open');
+      saveMyTeam({{
+        mode: 'custom',
+        rank: null,
+        team_name: (nameInp && nameInp.value.trim()) || '我方自選陣容',
+        score: null,
+        occupations: picked,
+      }});
+    }};
+  }}
+
+  const btnClr = document.getElementById('btnClearMyTeam');
+  if (btnClr) btnClr.onclick = () => saveMyTeam(null);
+
+  myTeam = loadMyTeam();
+  renderMyTeamBar();
+}}
+
+function buildHeadToHeadHtml(team) {{
+  if (!myTeam) return '';
+  if (myTeam.mode === 'rank' && myTeam.rank === team.rank) {{
+    return `<div class="h2h-box" style="border-color:rgba(74,222,128,.55)">🛡️ <b>此隊伍為目前已鎖定的我方戰隊</b>（點選其他對手列即可自動顯示雙方 10 秒客觀對位對照）。</div>`;
+  }}
+  const myOccs = (myTeam.occupations || []).filter(Boolean);
+  const oppOccs = (team.occupations || []).filter(Boolean);
+  const mc = countOccs(myOccs);
+  const oc = countOccs(oppOccs);
+
+  const myH = mc['補師'] || 0, oppH = oc['補師'] || 0;
+  let healerNote = '雙方同為單補（互拚 G4 禁補）', healerCls = '';
+  if (myH >= 2 && oppH <= 1) {{ healerNote = '✅ 我方 G4 禁補佔優'; healerCls = 'h2h-adv'; }}
+  else if (myH <= 1 && oppH >= 2) {{ healerNote = '⚠️ 敵方雙補・我方單補需防 G4 禁補'; healerCls = 'h2h-warn'; }}
+  else if (myH >= 2 && oppH >= 2) {{ healerNote = '⚖️ 雙方同為雙補配置'; }}
+  else if (oppH === 0 && myH >= 1) {{ healerNote = '✅ 敵方無補・我方續航壓制'; healerCls = 'h2h-adv'; }}
+
+  const myAlc = !!mc['煉金'], oppAlc = !!oc['煉金'];
+  const alcNote = myAlc && !oppAlc ? '✅ 我方獨有護貝/毀裝' : !myAlc && oppAlc ? '⚠️ 敵方獨有護貝/毀裝' : myAlc && oppAlc ? '⚖️ 雙方皆有煉金' : '➖ 雙方皆無煉金';
+  const alcCls = myAlc && !oppAlc ? 'h2h-adv' : !myAlc && oppAlc ? 'h2h-warn' : '';
+
+  const myDru = !!mc['德魯伊'], oppDru = !!oc['德魯伊'];
+  const druNote = myDru && !oppDru ? '✅ 我方獨有德魯伊 AOE' : !myDru && oppDru ? '⚠️ 敵方獨有德魯伊 AOE' : myDru && oppDru ? '⚖️ 雙方皆有德魯伊' : '➖ 雙方皆無德魯伊';
+  const druCls = myDru && !oppDru ? 'h2h-adv' : !myDru && oppDru ? 'h2h-warn' : '';
+
+  const myMonk = !!mc['武僧'], oppMonk = !!oc['武僧'];
+  const monkNote = myMonk && !oppMonk ? '✅ 我方獨有阿修羅威脅' : !myMonk && oppMonk ? '⚠️ 敵方有武僧・需防減員' : myMonk && oppMonk ? '⚖️ 雙方皆有武僧' : '➖ 雙方皆無武僧';
+  const monkCls = !myMonk && oppMonk ? 'h2h-warn' : '';
+
+  const myDuels = DUEL_CLASSES.filter(k => mc[k]);
+  const oppDuels = DUEL_CLASSES.filter(k => oc[k]);
+  const myDbl = Object.keys(mc).filter(k => mc[k] >= 2);
+  const oppDbl = Object.keys(oc).filter(k => oc[k] >= 2);
+
+  const scoreDiffHtml = (myTeam.score !== null && myTeam.score !== undefined && team.score !== null && team.score !== undefined)
+    ? `<span class="sub" style="font-size:0.82rem">積分對照：我方 <b>${{myTeam.score}}分</b> (#${{myTeam.rank}}) vs 敵方 <b>${{team.score}}分</b> (#${{team.rank}})</span>`
+    : `<span class="sub" style="font-size:0.82rem">我方：<b>${{esc(myTeam.team_name)}}</b> vs 敵方：<b>#${{team.rank}} ${{esc(team.team_name)}}</b></span>`;
+
+  return `
+  <div class="h2h-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+      <b style="color:var(--accent);font-size:0.9rem">⚔️ 我方 vs 對手 — 10 秒客觀對位對照</b>
+      ${{scoreDiffHtml}}
+    </div>
+    <div class="h2h-grid">
+      <div class="h2h-item ${{healerCls}}"><div class="h-lbl">補師資源（G4 禁補關鍵）</div><b>我 ×${{myH}} vs 敵 ×${{oppH}}</b><div style="font-size:0.78rem;margin-top:2px">${{healerNote}}</div></div>
+      <div class="h2h-item ${{alcCls}}"><div class="h-lbl">煉金護貝 ＆ 毀裝</div><b>我 ${{myAlc?'✅':'❌'}} / 敵 ${{oppAlc?'✅':'❌'}}</b><div style="font-size:0.78rem;margin-top:2px">${{alcNote}}</div></div>
+      <div class="h2h-item ${{druCls}}"><div class="h-lbl">德魯伊 5v5 範圍壓制</div><b>我 ${{myDru?'✅':'❌'}} / 敵 ${{oppDru?'✅':'❌'}}</b><div style="font-size:0.78rem;margin-top:2px">${{druNote}}</div></div>
+      <div class="h2h-item ${{monkCls}}"><div class="h-lbl">武僧阿修羅秒殺點</div><b>我 ${{myMonk?'✅':'❌'}} / 敵 ${{oppMonk?'✅':'❌'}}</b><div style="font-size:0.78rem;margin-top:2px">${{monkNote}}</div></div>
+      <div class="h2h-item"><div class="h-lbl">G2 單挑強點（賢/流/騎/僧）</div><b>我 ${{myDuels.length}} 種 vs 敵 ${{oppDuels.length}} 種</b><div class="sub" style="font-size:0.76rem;margin-top:2px">敵：${{oppDuels.join('、') || '無'}}</div></div>
+      <div class="h2h-item"><div class="h-lbl">雙職業輪轉資源</div><b>我 ${{myDbl.length}} 組 vs 敵 ${{oppDbl.length}} 組</b><div class="sub" style="font-size:0.76rem;margin-top:2px">敵：${{oppDbl.length ? oppDbl.map(d=>d+'×2').join('、') : '無'}}</div></div>
+    </div>
+    <div style="margin-top:8px;font-size:0.81rem;display:flex;flex-wrap:wrap;gap:12px;align-items:center">
+      <span><b>我方預設前5：</b>${{myOccs.slice(0,5).map(o => `<span class="pill" style="padding:2px 6px">${{ico(o)}}${{esc(o)}}</span>`).join('')}}</span>
+      <span><b>對手預設前5：</b>${{oppOccs.slice(0,5).map(o => `<span class="pill" style="padding:2px 6px">${{ico(o)}}${{esc(o)}}</span>`).join('')}}</span>
+    </div>
+  </div>`;
+}}
+
+// ============================================================
+// C1: Opponent Roster Features, Threats & Objective Gaps Card
+// ============================================================
 function buildScoutCardHtml(team) {{
   const rawOccs = (team.occupations || []).filter(Boolean);
-  const counts = {{}};
-  rawOccs.forEach(o => counts[o] = (counts[o] || 0) + 1);
+  const counts = countOccs(rawOccs);
   const doubles = Object.keys(counts).filter(o => counts[o] >= 2);
+  const isSelf = myTeam && myTeam.mode === 'rank' && myTeam.rank === team.rank;
 
-  const tips = [];
-  const default5Str = rawOccs.slice(0, 5).join(' / ');
-  const bench3Str = rawOccs.slice(5, 8).join(' / ');
-  tips.push(`📋 <b>遊戲內預設席次</b>：前 5 格預設先發【<b>${{esc(default5Str)}}</b>】｜後 3 格替補【<b>${{esc(bench3Str || '無')}}</b>】（開賽前仍可替換）。`);
+  const threats = [];
+  const gaps = [];
 
   if ((counts['補師'] || 0) >= 2) {{
-    tips.push('💉 <b>雙補師配置 (補師×2)</b>：對手擁有 2 隻補師可分攤 5v5 與 3v3 出戰紀錄，即使在 G4 (2v2) 禁選掉其 G3 的補師，對手 G4 席次 1 仍可保底有補師登場。');
+    threats.push('💉 <b>雙補師配置 (補師×2)</b>：可分攤 5v5 與 3v3 出戰紀錄，即使 G4 (2v2) 禁選掉其 G3 補師，對手 G4 席次 1 仍可保底有補師登場。');
   }} else if ((counts['補師'] || 0) === 1) {{
-    tips.push('🚫 <b>單補師配置 (補師×1)</b>：對手僅 1 隻補師；若該補師在 G1 (5v5) 與 G3 (3v3) 皆出場，進入 G4 (2v2) 時<b>可優先禁選其 G3 的補師</b>，迫使對手在 2v2 打無補師局。');
+    gaps.push('🚫 <b>單補師配置 (補師×1)</b>：若對手在 G1 (5v5) 與 G3 (3v3) 皆出動補師，進入 G4 (2v2) 時<b>可優先禁選其 G3 補師</b>，迫使對手打無補師局。');
   }} else {{
-    tips.push('⚠️ <b>無正統補師名單</b>：對手 8 人名單中未攜帶補師，續航與復活容錯極低，可全力強壓換血。');
+    gaps.push('⚠️ <b>無正統補師名單</b>：對手 8 人名單未攜帶補師，續航與復活容錯極低，可全力強壓換血。');
   }}
 
   if ((counts['法師'] || 0) >= 2) {{
-    tips.push('❄️ <b>雙法師配置 (法師×2)</b>：對手配置 2 隻法師（多用於跨局分攤 G1/G3/G4 控場，使各局皆有法師控場不斷檔）。');
+    threats.push('❄️ <b>雙法師配置 (法師×2)</b>：可跨局分攤 G1/G3/G4 控場，使各局皆有法師控場不斷檔。');
   }}
   if ((counts['詩人'] || 0) >= 2) {{
-    tips.push('🎵 <b>雙詩人配置 (詩人×2)</b>：對手配置 2 隻詩人，可跨局分攤 3v3/2v2 輔助位，或於賽前切換「1 輔助流 ＋ 1 輸出流」。');
+    threats.push('🎵 <b>雙詩人配置 (詩人×2)</b>：可跨局分攤 3v3/2v2 輔助位，或於賽前切換「1 輔助流 ＋ 1 輸出流」。');
   }}
   if (counts['德魯伊']) {{
-    tips.push('🌿 <b>德魯伊團戰範圍壓制</b>：對手帶有德魯伊，大範圍 AOE 傷害與控場在 5v5 團戰威脅極高，需注意分散站位。');
+    threats.push('🌿 <b>德魯伊團戰範圍壓制</b>：大範圍 AOE 傷害與控場在 5v5 團戰威脅極高，需注意分散站位。');
+  }} else {{
+    gaps.push('🌿 <b>缺德魯伊</b>：5v5 團戰缺少最強大範圍 AOE 壓制核心，我方團戰陣型站位壓力較低。');
   }}
+
   if (counts['武僧']) {{
-    tips.push('🥊 <b>武僧阿修羅減員威脅</b>：對手帶有武僧，核心戰術為阿修羅一拳秒殺製造人數差，需特別注意關鍵目標保護。');
+    threats.push('🥊 <b>武僧阿修羅減員威脅</b>：核心戰術為阿修羅一拳秒殺製造人數差，需特別注意關鍵目標保護。');
   }}
+
   if (counts['煉金']) {{
-    tips.push('⚗️ <b>煉金護貝＆毀裝干擾</b>：對手帶有煉金，具備護貝（保護隊友免於裝備破壞）與單體攻擊破壞我方裝備的能力。');
+    threats.push('⚗️ <b>煉金護貝＆毀裝干擾</b>：具備護貝（保護隊友免於裝備破壞）與單體攻擊破壞我方裝備的能力。');
+  }} else {{
+    gaps.push('🧪 <b>缺煉金（無護貝保護）</b>：對手名單未帶煉金防毀裝，我方若有毀裝手段或針對前排破甲時收益大增。');
   }}
+
   if (counts['刺客'] || counts['流氓']) {{
     const burstNames = ['流氓', '刺客'].filter(c => counts[c]).join('、');
-    tips.push(`🗡️ <b>高機動手長單體爆發（${{burstNames}}）</b>：機動性佳、手長且單體 DPS 爆發高，但本體偏軟，可透過控場鎖定後集火反殺。`);
+    threats.push(`🗡️ <b>高機動手長單體爆發（${{burstNames}}）</b>：機動性佳、手長且單體 DPS 爆發高，但本體偏軟，可透過控場鎖定後集火反殺。`);
   }}
+
+  // G2 (1v1) Duelist Pool Analysis (賢者 / 流氓 / 騎士 / 武僧)
+  const duelists = DUEL_CLASSES.filter(c => counts[c]);
+  if (!counts['賢者'] && duelists.length === 0) {{
+    gaps.push('🤺 <b>極度缺乏 1v1 單挑強點</b>：名單無賢者／流氓／騎士／武僧，G2 單挑局對位壓力明顯較小。');
+  }} else if (!counts['賢者'] && duelists.length === 1) {{
+    gaps.push(`🤺 <b>缺賢者且 1v1 牌池極窄</b>：僅有「<b>${{duelists[0]}}</b>」為常見 1v1 強點，G2 賽前極易預判其單挑人選。`);
+  }} else if (!counts['賢者']) {{
+    gaps.push(`🤺 <b>缺賢者（無第一梯隊 1v1 核心）</b>：對手 G2 單挑主力將聚焦於「<b>${{duelists.join('、')}}</b>」。`);
+  }} else if (duelists.length === 1) {{
+    gaps.push('🤺 <b>1v1 核心單一（僅賢者）</b>：除賢者外無流氓／騎士／武僧，G2 高機率圍繞賢者出牌。');
+  }}
+
+  if (!counts['騎士'] && !counts['十字']) {{
+    gaps.push('🛡️ <b>缺正統前排（無騎士／無十字）</b>：正面承傷與強開坦度偏薄。');
+  }}
+  if (rawOccs.length < 8) {{
+    gaps.push(`👥 <b>名單未滿編（僅 ${{rawOccs.length}} 人）</b>：跨局輪換與針對性替補彈性受限。`);
+  }}
+
+  if (!threats.length) {{
+    threats.push('⚖️ 無雙職業爆發點或極端減員威脅，屬偏常規之均衡陣容。');
+  }}
+  if (!gaps.length) {{
+    gaps.push('✅ <b>名單無明顯職業缺口</b>（雙補＋煉金＋德魯伊＋多單挑點＋前排＋滿編皆齊全），屬高完整度強隊，建議回歸對位細節與機體應對。');
+  }}
+
+  const default5Str = rawOccs.slice(0, 5).join(' / ');
+  const bench3Str = rawOccs.slice(5, 8).join(' / ');
 
   return `
   <div class="scout-box">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
       <div><b>🎯 #${{team.rank}} ${{esc(team.team_name)}} — 對手陣容特徵 ＆ 實戰對局提醒</b></div>
-      <span class="sub">雙職業配置：${{doubles.length ? doubles.map(d => `<b>${{d}}×2</b>`).join('、') : '無（全 8 異職）'}}</span>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span class="sub">雙職業配置：${{doubles.length ? doubles.map(d => `<b>${{d}}×2</b>`).join('、') : '無（全 8 異職）'}}</span>
+        <button class="chip-btn ${{isSelf ? 'active' : ''}}" type="button" onclick="setMyTeamByRank(${{team.rank}}, event)">${{isSelf ? '✅ 已鎖定為我方戰隊' : '🛡️ 設為我方戰隊'}}</button>
+      </div>
     </div>
-    <div style="margin-top:8px;font-size:0.87rem;line-height:1.7">
-      ${{tips.map(t => `<div>• ${{t}}</div>`).join('')}}
+    ${{buildHeadToHeadHtml(team)}}
+    <div class="sub" style="margin-top:8px;font-size:0.84rem;background:#0b1120;border:1px solid var(--border);border-radius:8px;padding:7px 11px">
+      📋 <b>遊戲內預設席次</b>：前 5 格預設先發【<b style="color:var(--text)">${{esc(default5Str)}}</b>】｜後 3 格替補【<b style="color:var(--text)">${{esc(bench3Str || '無')}}</b>】（開賽前仍可替換）
+    </div>
+    <div class="scout-cols">
+      <div class="scout-col threat">
+        <h4 style="color:var(--accent2)">⚠️ 對方關鍵威脅 ＆ 輪轉優勢</h4>
+        ${{threats.map(t => `<div>• ${{t}}</div>`).join('')}}
+      </div>
+      <div class="scout-col gap">
+        <h4 style="color:var(--green)">🎯 對方陣容缺口（可針對破綻）</h4>
+        ${{gaps.map(g => `<div>• ${{g}}</div>`).join('')}}
+      </div>
     </div>
   </div>`;
 }}
 
-// Tab 1 Filtering (Script + Visual Feature + Fuzzy Search + Click-to-Scout)
+// Tab 1 Filtering (Script + Visual Feature + Score Bracket + Fuzzy Search + Click-to-Scout)
 const occSel = document.getElementById('occFilter');
 A.occupation_frequency.forEach(r => {{ const o = document.createElement('option'); o.value = r.occupation; o.textContent = r.occupation; occSel.appendChild(o); }});
 const dpSel = document.getElementById('dpFilter');
 let activeScript = 'all';
 let activeFeat = 'all';
 let expandedRanks = new Set();
+
+function applyScoreFilter(minSc, maxSc) {{
+  activeScoreRange = {{ min: Number(minSc), max: Number(maxSc) }};
+  const banner = document.getElementById('scoreFilterBanner');
+  const txt = document.getElementById('scoreFilterText');
+  if (banner && txt) {{
+    txt.innerHTML = `🎯 <b>目前僅顯示同分圈對手：積分 ${{activeScoreRange.min}} ～ ${{activeScoreRange.max}} 分</b>`;
+    banner.classList.add('open');
+  }}
+  renderRaw();
+}}
+
+function clearScoreFilter() {{
+  activeScoreRange = null;
+  const banner = document.getElementById('scoreFilterBanner');
+  if (banner) banner.classList.remove('open');
+  renderRaw();
+}}
+const btnClrSc = document.getElementById('btnClearScoreFilter');
+if (btnClrSc) btnClrSc.onclick = clearScoreFilter;
 
 function detectScript(name) {{
   const s = String(name || '');
@@ -584,6 +970,7 @@ function renderRaw() {{
   const occ = occSel.value;
   const dp = dpSel.value;
   const filtered = A.raw_data.filter(r => {{
+    if (activeScoreRange && (r.score === null || r.score === undefined || r.score < activeScoreRange.min || r.score > activeScoreRange.max)) return false;
     if (activeScript !== 'all' && detectScript(r.team_name) !== activeScript) return false;
     if (activeFeat !== 'all' && !matchFeature(r.team_name, activeFeat)) return false;
     if (occ && !r.occupations.includes(occ)) return false;
@@ -608,9 +995,11 @@ function renderRaw() {{
     const counts = {{}};
     (r.occupations || []).forEach(o => counts[o] = (counts[o] || 0) + 1);
     const isExp = expandedRanks.has(r.rank);
-    rowsHtml += `<tr class="team-row" onclick="toggleScoutRow(${{r.rank}})">
+    const isMy = myTeam && myTeam.mode === 'rank' && myTeam.rank === r.rank;
+    const myTag = isMy ? '<span class="q-tag q-dark" style="margin-right:6px">🛡️ 我方</span>' : '';
+    rowsHtml += `<tr class="team-row ${{isMy ? 'is-my-team' : ''}}" onclick="toggleScoutRow(${{r.rank}})">
       <td><b>#${{r.rank}}</b></td>
-      <td>${{scriptBadge(detectScript(r.team_name))}}<b>${{esc(r.team_name)}}</b> <span class="sub" style="font-size:0.76rem">${{isExp ? '▲ 收合提醒' : '▼ 對局提醒'}}</span></td>
+      <td>${{myTag}}${{scriptBadge(detectScript(r.team_name))}}<b>${{esc(r.team_name)}}</b> <span class="sub" style="font-size:0.76rem">${{isExp ? '▲ 收合提醒' : '▼ 對局提醒'}}</span></td>
       <td>${{r.score ?? '-'}}</td>
       <td>${{r.double_pick_count}} 組</td>
       <td>${{r.occupations.map(o => `<span class="pill ${{counts[o]>=2?'dp':''}}">${{ico(o)}}<span>${{esc(o)}}</span></span>`).join('')}}</td>
@@ -627,7 +1016,226 @@ function renderRaw() {{
 document.getElementById('searchInput').oninput = renderRaw;
 occSel.onchange = renderRaw;
 dpSel.onchange = renderRaw;
+initMyTeamControls();
 renderRaw();
+
+// ============================================================
+// C5: Score Cutoffs & Target Bracket Opponent Environment
+// ============================================================
+let renderBracketPresets = null;
+(function initScoreBracketPanel() {{
+  const card = document.getElementById('scoreBracketCard');
+  const cutGrid = document.getElementById('cutoffGrid');
+  const densTbl = document.getElementById('scoreDensityTable');
+  const presetBar = document.getElementById('bracketPresetBar');
+  const minSel = document.getElementById('bracketMinScore');
+  const maxSel = document.getElementById('bracketMaxScore');
+  const metaTxt = document.getElementById('bracketMetaText');
+  const kpiGrid = document.getElementById('bracketKpiGrid');
+  const occGrid = document.getElementById('bracketOccGrid');
+  const jumpBtn = document.getElementById('btnJumpBracketToRaw');
+
+  const scoreTiers = A.score_tiers || [];
+  const scoreCutoffs = A.score_cutoffs || [];
+  const teamsWithScore = A.raw_data.filter(t => t.score !== null && t.score !== undefined);
+  if (!card || !teamsWithScore.length || !scoreTiers.length) {{
+    if (card) card.style.display = 'none';
+    return;
+  }}
+
+  // 1. Render Milestone Cutoffs
+  if (cutGrid) {{
+    cutGrid.innerHTML = scoreCutoffs.map(c => `
+      <div class="cutoff-pill">
+        <div class="c-rank">${{esc(c.label)}} 門檻線</div>
+        <div class="c-score">${{c.cutoff_score}} 分 <span class="sub" style="font-size:0.78rem;font-weight:500">（穩進 ${{c.safe_score}}+ 分）</span></div>
+        <div class="c-tie">同分擠壓：<b>${{c.tied_teams}} 隊</b>同為 ${{c.cutoff_score}} 分（${{esc(c.tied_rank_range)}}）</div>
+      </div>`).join('');
+  }}
+
+  // 2. Render Ladder Score Density Table
+  const maxTierCnt = Math.max(...scoreTiers.map(s => s.team_count), 1);
+  if (densTbl) {{
+    densTbl.innerHTML = '<thead><tr><th>積分</th><th>隊伍數（擠壓密度）</th><th>排名區間</th><th>雙補師率</th><th>德魯伊率</th><th>武僧率</th><th>平均雙職業</th></tr></thead><tbody>' +
+      scoreTiers.map(s => {{
+        const wPct = Math.max(4, Math.round((s.team_count / maxTierCnt) * 100));
+        return `<tr class="team-row" onclick="selectScoreBracket(${{s.score}}, ${{s.score}})">
+          <td><b>${{s.score}} 分</b></td>
+          <td style="min-width:190px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <div class="density-bar-wrap" style="flex:1"><div class="density-bar" style="width:${{wPct}}%"></div></div>
+              <span style="min-width:54px;text-align:right"><b>${{s.team_count}} 隊</b></span>
+            </div>
+          </td>
+          <td>${{esc(s.rank_range)}}</td>
+          <td>${{pct(s.double_healer_rate)}}</td>
+          <td>${{pct(s.druid_rate)}}</td>
+          <td>${{pct(s.monk_rate)}}</td>
+          <td>${{s.avg_doubles}} 組</td>
+        </tr>`;
+      }}).join('') + '</tbody>';
+  }}
+
+  // Overall baseline rates for delta comparison
+  const totalN = teamsWithScore.length;
+  const overallOccRate = {{}};
+  A.occupation_frequency.forEach(r => overallOccRate[r.occupation] = r.team_presence_rate);
+  const overallDblHealer = teamsWithScore.filter(t => countOccs(t.occupations)['補師'] >= 2).length / totalN;
+  const overallDruid = teamsWithScore.filter(t => countOccs(t.occupations)['德魯伊'] >= 1).length / totalN;
+  const overallMonk = teamsWithScore.filter(t => countOccs(t.occupations)['武僧'] >= 1).length / totalN;
+  const overallAlc = teamsWithScore.filter(t => countOccs(t.occupations)['煉金'] >= 1).length / totalN;
+  const overallAvgDp = teamsWithScore.reduce((s, t) => s + (t.double_pick_count || 0), 0) / totalN;
+
+  const allScoresDesc = scoreTiers.map(s => s.score);
+  const maxSc = allScoresDesc[0];
+  const minSc = allScoresDesc[allScoresDesc.length - 1];
+
+  const scOpts = allScoresDesc.map(sc => `<option value="${{sc}}">${{sc}} 分</option>`).join('');
+  minSel.innerHTML = scOpts;
+  maxSel.innerHTML = scOpts;
+
+  function fmtDelta(val, base) {{
+    const diff = (val - base) * 100;
+    if (Math.abs(diff) < 0.8) return '<span class="sub">（與全服相近）</span>';
+    const cls = diff > 0 ? 'pos' : 'neg';
+    return `<span class="${{cls}}">（較全服 ${{diff > 0 ? '+' : ''}}${{diff.toFixed(1)}}%）</span>`;
+  }}
+
+  function renderBracket(lo, hi) {{
+    const loN = Math.min(Number(lo), Number(hi));
+    const hiN = Math.max(Number(lo), Number(hi));
+    minSel.value = String(loN);
+    maxSel.value = String(hiN);
+
+    const sub = teamsWithScore.filter(t => t.score >= loN && t.score <= hiN);
+    if (!sub.length) {{
+      metaTxt.textContent = '此區間無隊伍資料';
+      kpiGrid.innerHTML = '';
+      occGrid.innerHTML = '';
+      return;
+    }}
+    const rMin = Math.min(...sub.map(t => t.rank));
+    const rMax = Math.max(...sub.map(t => t.rank));
+    metaTxt.textContent = `共 ${{sub.length}} 支假想敵｜涵蓋排名 #${{rMin}} ～ #${{rMax}}`;
+    if (jumpBtn) {{
+      jumpBtn.textContent = `🔍 在排行榜查看這 ${{sub.length}} 支同分圈對手 (${{loN}}~${{hiN}}分)`;
+      jumpBtn.onclick = () => {{
+        document.querySelector('.tab[data-tab="raw"]').click();
+        applyScoreFilter(loN, hiN);
+        document.getElementById('rawTable').scrollIntoView({{ behavior: 'smooth', block: 'start' }});
+      }};
+    }}
+
+    const n = sub.length;
+    const cntDblH = sub.filter(t => (countOccs(t.occupations)['補師'] || 0) >= 2).length;
+    const cntSglH = sub.filter(t => (countOccs(t.occupations)['補師'] || 0) === 1).length;
+    const cntDru = sub.filter(t => countOccs(t.occupations)['德魯伊']).length;
+    const cntMonk = sub.filter(t => countOccs(t.occupations)['武僧']).length;
+    const cntAlc = sub.filter(t => countOccs(t.occupations)['煉金']).length;
+    const avgDp = sub.reduce((s, t) => s + (t.double_pick_count || 0), 0) / n;
+
+    // Top 2 double-pick classes in this bracket
+    const dpMap = {{}};
+    sub.forEach(t => {{
+      const c = countOccs(t.occupations);
+      Object.keys(c).forEach(k => {{ if (c[k] >= 2) dpMap[k] = (dpMap[k] || 0) + 1; }});
+    }});
+    const topDps = Object.entries(dpMap).sort((a, b) => b[1] - a[1]).slice(0, 2)
+      .map(([k, v]) => `${{k}}×2 (${{Math.round(v / n * 100)}}%)`).join('、') || '無';
+
+    kpiGrid.innerHTML = [
+      ['💉 雙補師比例（補×2）', `${{pct(cntDblH / n)}} <span class="sub" style="font-size:0.84rem">(${{cntDblH}}隊)</span>`, `${{fmtDelta(cntDblH / n, overallDblHealer)}}<br>單補 G4 可禁對象：<b>${{cntSglH}} 隊</b> (${{pct(cntSglH / n)}})`],
+      ['🌿 德魯伊出場率（5v5 AOE）', `${{pct(cntDru / n)}} <span class="sub" style="font-size:0.84rem">(${{cntDru}}隊)</span>`, `${{fmtDelta(cntDru / n, overallDruid)}}<br>缺德魯伊隊數：${{n - cntDru}} 隊`],
+      ['🥊 武僧出場率（阿修羅）', `${{pct(cntMonk / n)}} <span class="sub" style="font-size:0.84rem">(${{cntMonk}}隊)</span>`, `${{fmtDelta(cntMonk / n, overallMonk)}}<br>需防一拳減員頻率`],
+      ['⚗️ 煉金覆蓋率（護貝）', `${{pct(cntAlc / n)}} <span class="sub" style="font-size:0.84rem">(${{cntAlc}}隊)</span>`, `${{fmtDelta(cntAlc / n, overallAlc)}}<br>無煉金（無護貝）：<b>${{n - cntAlc}} 隊</b>`],
+      ['⚔️ 平均雙職業組數', `${{avgDp.toFixed(2)}} 組`, `全服平均 ${{overallAvgDp.toFixed(2)}} 組<br>最常見：${{topDps}}`],
+    ].map(([l, v, s]) => `<div class="bracket-kpi"><div class="b-lbl">${{l}}</div><div class="b-val">${{v}}</div><div class="b-sub">${{s}}</div></div>`).join('');
+
+    // Per-occupation breakdown sorted by presence in this bracket
+    const occRows = A.occupation_frequency.map(r => {{
+      const o = r.occupation;
+      const c = sub.filter(t => (t.occupations || []).includes(o)).length;
+      const rate = c / n;
+      const diff = (rate - (overallOccRate[o] || 0)) * 100;
+      return {{ o, c, rate, diff, low_sample: r.low_sample }};
+    }}).sort((a, b) => b.rate - a.rate || b.diff - a.diff);
+
+    occGrid.innerHTML = occRows.map(x => {{
+      const w = Math.max(2, Math.round(x.rate * 100));
+      const dTxt = Math.abs(x.diff) < 0.8
+        ? '<span class="sub">±0%</span>'
+        : `<span class="${{x.diff > 0 ? 'pos' : 'neg'}}">${{x.diff > 0 ? '+' : ''}}${{x.diff.toFixed(1)}}%</span>`;
+      const dim = x.low_sample ? ' style="opacity:0.68"' : '';
+      return `<div class="bracket-occ-row"${{dim}}>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <span class="lbl-flex">${{ico(x.o)}}${{esc(x.o)}}</span>
+          <span><b>${{pct(x.rate)}}</b> (${{x.c}}隊) ${{dTxt}}</span>
+        </div>
+        <div class="density-bar-wrap" style="height:8px"><div class="density-bar" style="width:${{w}}%;background:${{x.diff >= 5 ? '#4ade80' : x.diff <= -5 ? '#f87171' : '#38bdf8'}}"></div></div>
+      </div>`;
+    }}).join('');
+  }}
+
+  window.selectScoreBracket = function(lo, hi) {{
+    document.querySelectorAll('#bracketPresetBar .chip-btn').forEach(b => b.classList.remove('active'));
+    renderBracket(lo, hi);
+  }};
+
+  // Build smart score presets based on actual cutoffs + C3 myTeam score!
+  const c16 = scoreCutoffs.find(c => c.rank_cutoff === 16) || scoreCutoffs[0];
+  const c32 = scoreCutoffs.find(c => c.rank_cutoff === 32);
+  const c100 = scoreCutoffs.find(c => c.rank_cutoff === 100);
+
+  renderBracketPresets = function() {{
+    const presets = [];
+    if (myTeam && myTeam.score !== null && myTeam.score !== undefined) {{
+      const ms = Number(myTeam.score);
+      presets.push({{
+        label: `🎯 我方同分圈 (${{Math.max(minSc, ms - 1)}}~${{Math.min(maxSc, ms + 1)}}分)`,
+        lo: Math.max(minSc, ms - 1),
+        hi: Math.min(maxSc, ms + 1),
+        highlight: true,
+      }});
+    }}
+    if (c16) {{
+      presets.push({{ label: `🏆 爭冠頂端 (${{c16.cutoff_score}}~${{maxSc}}分)`, lo: c16.cutoff_score, hi: maxSc }});
+    }}
+    if (c32 && c16) {{
+      const lo32 = Math.max(minSc, c32.cutoff_score - 1);
+      presets.push({{ label: `🔥 前32卡位圈 (${{lo32}}~${{c16.cutoff_score}}分)`, lo: lo32, hi: c16.cutoff_score }});
+    }}
+    if (c100 && c32) {{
+      presets.push({{ label: `⚔️ 中段混戰圈 (${{c100.cutoff_score}}~${{Math.max(c100.cutoff_score, c32.cutoff_score - 1)}}分)`, lo: c100.cutoff_score, hi: Math.max(c100.cutoff_score, c32.cutoff_score - 1) }});
+    }}
+    if (c100 && c100.cutoff_score > minSc) {{
+      presets.push({{ label: `🛡️ 百名後段 (${{minSc}}~${{c100.cutoff_score - 1}}分)`, lo: minSc, hi: c100.cutoff_score - 1 }});
+    }}
+    presets.push({{ label: `🌐 全服 (${{minSc}}~${{maxSc}}分)`, lo: minSc, hi: maxSc }});
+
+    presetBar.innerHTML = '<span class="sub" style="margin-right:4px">快速分段：</span>' +
+      presets.map((p, idx) => `<button class="chip-btn ${{idx === 0 ? 'active' : ''}}" type="button" data-lo="${{p.lo}}" data-hi="${{p.hi}}" style="${{p.highlight ? 'border-color:var(--green);color:#86efac' : ''}}">${{esc(p.label)}}</button>`).join('');
+
+    presetBar.querySelectorAll('.chip-btn').forEach(btn => {{
+      btn.onclick = () => {{
+        presetBar.querySelectorAll('.chip-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        renderBracket(Number(btn.dataset.lo), Number(btn.dataset.hi));
+      }};
+    }});
+    if (presets.length) renderBracket(presets[0].lo, presets[0].hi);
+  }};
+
+  minSel.onchange = () => {{
+    presetBar.querySelectorAll('.chip-btn').forEach(b => b.classList.remove('active'));
+    renderBracket(Number(minSel.value), Number(maxSel.value));
+  }};
+  maxSel.onchange = () => {{
+    presetBar.querySelectorAll('.chip-btn').forEach(b => b.classList.remove('active'));
+    renderBracket(Number(minSel.value), Number(maxSel.value));
+  }};
+
+  renderBracketPresets();
+}})();
 
 // GitHub Pages Client-Side Screenshot Paste & Free OCR API (Tesseract.js CDN + OCR.space + Visual Fingerprint)
 (function initOnlineImageScout() {{
@@ -812,6 +1420,9 @@ renderRaw();
   window.lockAndExpandScoutTeam = function(rank, name) {{
     activeScript = 'all';
     activeFeat = 'all';
+    activeScoreRange = null;
+    const scBan = document.getElementById('scoreFilterBanner');
+    if (scBan) scBan.classList.remove('open');
     document.querySelectorAll('#scriptFilterBar .chip-btn').forEach(b => b.classList.toggle('active', b.dataset.script === 'all'));
     document.querySelectorAll('#featFilterBar .chip-btn').forEach(b => b.classList.toggle('active', b.dataset.feat === 'all'));
     document.getElementById('searchInput').value = '#' + rank;

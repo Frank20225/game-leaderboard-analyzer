@@ -260,7 +260,7 @@ def write_excel_report(
     # Score tiers subtable
     r_k += 2
     ws_rank.cell(row=r_k, column=1, value="【附表二】當期積分梯隊分布（參考用，跨期比較請以排名為主）").font = _TITLE_FONT
-    sc_headers = ["積分", "隊伍數", "對應排名區間", "平均雙開數", "該梯隊熱門前 4 職業"]
+    sc_headers = ["積分", "隊伍數", "對應排名區間", "平均雙職業組數", "該梯隊熱門前 4 職業"]
     sc_rows = [
         [s["score"], s["team_count"], s["rank_range"], s["avg_doubles"], s["top_occupations"]]
         for s in analytics.get("score_tiers", [])

@@ -520,30 +520,70 @@ def compute_leaderboard_analytics(
         sorted_teams, team_occs_list, all_occ_names, ranks, top10_set
     )
 
-    # 5. Score Tier Distribution (optional reference for current snapshot)
+    # 5. Score Tier Distribution & Milestone Cutoffs (Coach Bracket & Ladder Density)
     score_buckets: dict[int, list[int]] = defaultdict(list)
     for i, sc in enumerate(scores):
         if sc is not None:
             score_buckets[int(sc)].append(i)
     score_tiers: list[dict[str, Any]] = []
-    for sc in sorted(score_buckets.keys(), reverse=True)[:10]:
+    for sc in sorted(score_buckets.keys(), reverse=True):
         idxs = score_buckets[sc]
         sc_ranks = [ranks[i] for i in idxs]
+        n_sc = len(idxs)
         top_occs_in_sc = Counter(o for i in idxs for o in set(team_occs_list[i])).most_common(4)
+        healer_cnts = [team_occs_list[i].count("補師") for i in idxs]
         score_tiers.append(
             {
                 "score": sc,
-                "team_count": len(idxs),
-                "rank_range": f"#{min(sc_ranks)}～#{max(sc_ranks)}",
+                "team_count": n_sc,
+                "team_rate": round(n_sc / max(1, total_teams), 4),
+                "rank_min": min(sc_ranks),
+                "rank_max": max(sc_ranks),
+                "rank_range": f"#{min(sc_ranks)}～#{max(sc_ranks)}" if min(sc_ranks) != max(sc_ranks) else f"#{min(sc_ranks)}",
                 "avg_doubles": round(
                     float(np.mean([sum(1 for c in Counter(team_occs_list[i]).values() if c >= 2) for i in idxs])),
                     2,
                 ),
+                "double_healer_rate": round(sum(1 for c in healer_cnts if c >= 2) / n_sc, 4),
+                "single_healer_rate": round(sum(1 for c in healer_cnts if c == 1) / n_sc, 4),
+                "druid_rate": round(sum(1 for i in idxs if "德魯伊" in team_occs_list[i]) / n_sc, 4),
+                "monk_rate": round(sum(1 for i in idxs if "武僧" in team_occs_list[i]) / n_sc, 4),
+                "alchemist_rate": round(sum(1 for i in idxs if "煉金" in team_occs_list[i]) / n_sc, 4),
                 "top_occupations": "、".join(
-                    f"{o}({round(c/len(idxs)*100)}%)" for o, c in top_occs_in_sc
+                    f"{o}({round(c / n_sc * 100)}%)" for o, c in top_occs_in_sc
                 ),
             }
         )
+
+    score_cutoffs: list[dict[str, Any]] = []
+    if score_buckets:
+        milestones = [m for m in (10, 16, 32, 50, 100, 200) if m <= total_teams]
+        if total_teams not in milestones and total_teams >= 5:
+            milestones.append(total_teams)
+        for m in milestones:
+            t_m = sorted_teams[m - 1]
+            sc_val = t_m.get("score")
+            if sc_val is None:
+                continue
+            sc_int = int(sc_val)
+            tied_idxs = score_buckets.get(sc_int, [])
+            tied_ranks = [ranks[i] for i in tied_idxs]
+            in_cut = sum(1 for r in tied_ranks if r <= m)
+            score_cutoffs.append(
+                {
+                    "label": f"Top {m}",
+                    "rank_cutoff": m,
+                    "cutoff_score": sc_int,
+                    "safe_score": sc_int + 1,
+                    "tied_teams": len(tied_idxs),
+                    "in_cutoff_tied": in_cut,
+                    "tied_rank_range": (
+                        f"#{min(tied_ranks)}～#{max(tied_ranks)}"
+                        if tied_ranks and min(tied_ranks) != max(tied_ranks)
+                        else f"#{m}"
+                    ),
+                }
+            )
 
     # Enriched Raw Data
     raw_rows = []
@@ -607,6 +647,7 @@ def compute_leaderboard_analytics(
         "full_team_combinations": full_team_combos,
         "roster_archetypes": archetypes,
         "score_tiers": score_tiers,
+        "score_cutoffs": score_cutoffs,
         "ranking_analysis": {
             "tiers": tier_meta,
             "occupation_tier_comparison": top_tier_highlights,
