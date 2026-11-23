@@ -177,6 +177,7 @@ def generate_html_report(
 </head>
 <body>
 <div class="wrap">
+  <!-- GLA_NAV_START --><!-- GLA_NAV_END -->
   <header>
     <div>
       <h1>{safe_title}</h1>

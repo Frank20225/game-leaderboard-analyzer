@@ -17,6 +17,7 @@
       <select id="runSelect"></select>
       <button class="btn secondary" id="btnRefreshRuns">重新整理</button>
       <button class="btn secondary" id="btnOpenFolder" disabled>開啟輸出資料夾</button>
+      <button class="btn secondary" id="btnDeleteRun" disabled style="border-color:rgba(248,113,113,.5);color:#fca5a5" title="刪除此筆分析紀錄資料夾（如 demo_next_week_200 測試資料）">🗑️ 刪除此紀錄</button>
     </div>
   </header>
 
@@ -185,6 +186,10 @@
           💡 <b>期數順序說明</b>：由上往下依序為<b>「較早期（基準期）」→「最新一期（🌟 當下排名與積分榜主軸）」</b>。已自動依報告日期排好順序，你也可以隨時點右側 <code>⬆️ 上移</code> / <code>⬇️ 下移</code> 調整！
         </div>
         <div id="trendRunsList" style="margin-bottom:14px"></div>
+        <details style="margin-top:10px">
+          <summary style="cursor:pointer;color:var(--accent);font-weight:600">☁️ 管理／刪除已發佈在 GitHub Pages (docs/) 上的線上戰報（含移除 demo 測試報告）</summary>
+          <div id="publishedPagesList" style="margin-top:10px"></div>
+        </details>
       </div>
 
       <div class="card" id="trendResultCard" style="display:none">

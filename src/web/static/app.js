@@ -120,11 +120,49 @@ async function refreshRuns(selectRunId = null) {
 
   const target = selectRunId || (runs.length ? runs[0].run_id : "");
   renderTrendRunsPicker(runs);
+  refreshPublishedPagesList();
   if (target) {
     sel.value = target;
     await loadRun(target);
   }
 }
+
+async function refreshPublishedPagesList() {
+  const box = $("publishedPagesList");
+  if (!box) return;
+  try {
+    const pages = await api("/api/pages");
+    if (!pages.length) {
+      box.innerHTML = '<div class="muted">目前 docs/reports/ 尚無已發佈的報告。</div>';
+      return;
+    }
+    box.innerHTML = pages
+      .map(
+        (p) => `
+      <div class="row" style="justify-content:space-between;padding:8px 12px;margin:6px 0;background:var(--panel2);border-radius:8px">
+        <div>
+          <span class="badge ${p.report_type === "trend" ? "ok" : "edited"}">${p.report_type === "trend" ? "📈 跨期趨勢" : "📊 單期報告"}</span>
+          <b style="margin-left:6px">${p.title}</b>
+          <span class="muted" style="margin-left:8px">(<code>docs/reports/${p.slug}/</code> ｜ 發佈於 ${p.published_at})</span>
+        </div>
+        <button class="btn secondary" style="padding:4px 10px;font-size:0.8rem;border-color:rgba(248,113,113,.5);color:#fca5a5" onclick="deletePublishedPage('${p.slug}', '${(p.title || "").replace(/'/g, "\\'")}')">🗑️ 從 GitHub Pages 移除</button>
+      </div>`
+      )
+      .join("");
+  } catch (_) {}
+}
+
+window.deletePublishedPage = async function (slug, title) {
+  if (!confirm(`確定要從 GitHub Pages (docs/reports/${slug}) 移除「${title}」並同步更新線上總覽頁嗎？`)) return;
+  try {
+    showNotice(`⏳ 正在從 docs/ 移除 ${title} 並同步推送到 GitHub Pages...`, "warn");
+    const res = await api(`/api/pages/${encodeURIComponent(slug)}`, { method: "DELETE" });
+    showNotice(`✅ 已從 GitHub Pages 移除「${title}」！${res.git_message || ""}`, "ok");
+    await refreshPublishedPagesList();
+  } catch (e) {
+    showNotice("移除已發佈報告失敗：" + e.message, "err");
+  }
+};
 
 function renderTrendRunsPicker(runs) {
   const ready = runs.filter((r) => r.has_phase3);
@@ -221,10 +259,12 @@ async function loadRun(runId) {
     currentRunId = null;
     currentState = null;
     $("btnOpenFolder").disabled = true;
+    if ($("btnDeleteRun")) $("btnDeleteRun").disabled = true;
     return;
   }
   currentRunId = runId;
   $("btnOpenFolder").disabled = false;
+  if ($("btnDeleteRun")) $("btnDeleteRun").disabled = false;
   currentState = await api(`/api/runs/${encodeURIComponent(runId)}`);
   renderAllSections();
 }
@@ -431,6 +471,21 @@ $("btnOpenFolder").onclick = async () => {
   if (!currentRunId) return;
   await api(`/api/runs/${encodeURIComponent(currentRunId)}/open-folder`, { method: "POST" });
 };
+
+if ($("btnDeleteRun")) {
+  $("btnDeleteRun").onclick = async () => {
+    if (!currentRunId) return;
+    if (!confirm(`確定要永久刪除本機分析紀錄「${currentRunId}」嗎？（原始 MP4 影片不會受影響）`)) return;
+    try {
+      const deletedId = currentRunId;
+      await api(`/api/runs/${encodeURIComponent(deletedId)}`, { method: "DELETE" });
+      showNotice(`🗑️ 已刪除本機分析紀錄：${deletedId}`, "ok");
+      await refreshRuns();
+    } catch (e) {
+      showNotice("刪除失敗：" + e.message, "err");
+    }
+  };
+}
 
 $("btnPickVideo").onclick = async () => {
   try {

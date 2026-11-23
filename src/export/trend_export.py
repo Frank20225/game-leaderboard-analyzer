@@ -481,6 +481,7 @@ def generate_trend_html(
 </head>
 <body>
 <div class="wrap">
+  <!-- GLA_NAV_START --><!-- GLA_NAV_END -->
   <h1>🏆 {safe_title}</h1>
   <div class="sub" id="sub"></div>
   <section class="kpis" id="kpiRow"></section>

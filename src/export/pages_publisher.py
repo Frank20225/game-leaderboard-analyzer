@@ -58,6 +58,56 @@ def _resolve_dedup_slug_and_clean(
     return dest
 
 
+def _inject_cross_report_nav(reports_root: Path, all_metas: list[dict[str, Any]]) -> None:
+    """Inject or update a top navigation bar in every published docs/reports/<slug>/index.html
+    so users can jump back to docs/index.html or switch directly between any published reports."""
+    for m in all_metas:
+        cur_slug = m.get("slug", "")
+        rpt_html_p = reports_root / cur_slug / "index.html"
+        if not rpt_html_p.is_file():
+            continue
+        raw = rpt_html_p.read_text(encoding="utf-8")
+
+        links_html = []
+        for other in all_metas:
+            o_slug = other.get("slug", "")
+            o_title = html.escape(str(other.get("title", o_slug)))
+            is_cur = o_slug == cur_slug
+            icon = "📈" if other.get("report_type") == "trend" else "📊"
+            style = (
+                "background:#38bdf8;color:#0b1120;border-color:#38bdf8;font-weight:700;"
+                if is_cur
+                else "background:#0f172a;color:#cbd5e1;border-color:#273552;"
+            )
+            links_html.append(
+                f'<a href="../{html.escape(o_slug)}/index.html" style="text-decoration:none;padding:5px 12px;border-radius:999px;border:1px solid;font-size:0.82rem;display:inline-flex;align-items:center;gap:4px;{style}">{icon} {o_title}</a>'
+            )
+
+        nav_block = (
+            '<!-- GLA_NAV_START -->'
+            '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;background:#131c31;border:1px solid #273552;border-radius:12px;padding:10px 14px;margin-bottom:16px">'
+            '<a href="../../index.html" style="text-decoration:none;background:#1c2842;color:#38bdf8;border:1px solid #38bdf8;padding:6px 13px;border-radius:8px;font-weight:700;font-size:0.85rem;display:inline-flex;align-items:center;gap:5px">🏠 返回戰報總覽首頁</a>'
+            f'<div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px"><span style="color:#94a3b8;font-size:0.82rem">⇄ 快速切換戰報：</span>{"".join(links_html)}</div>'
+            '</div>'
+            '<!-- GLA_NAV_END -->'
+        )
+
+        if "<!-- GLA_NAV_START -->" in raw and "<!-- GLA_NAV_END -->" in raw:
+            updated = re.sub(
+                r"<!-- GLA_NAV_START -->.*?<!-- GLA_NAV_END -->",
+                lambda _: nav_block,
+                raw,
+                flags=re.DOTALL,
+            )
+        elif '<div class="wrap">' in raw:
+            updated = raw.replace('<div class="wrap">', f'<div class="wrap">\n  {nav_block}', 1)
+        else:
+            updated = raw
+
+        if updated != raw:
+            rpt_html_p.write_text(updated, encoding="utf-8")
+
+
 def rebuild_docs_index(target_docs: Path = DOCS_DIR) -> Path:
     """Rebuild docs/index.html listing all published single-period and multi-period trend reports."""
     reports_root = target_docs / "reports"
@@ -130,6 +180,7 @@ def rebuild_docs_index(target_docs: Path = DOCS_DIR) -> Path:
 """
     index_path = target_docs / "index.html"
     index_path.write_text(index_html, encoding="utf-8")
+    _inject_cross_report_nav(reports_root, all_metas)
     return index_path
 
 

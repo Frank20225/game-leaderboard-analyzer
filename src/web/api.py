@@ -20,6 +20,7 @@ import time
 import uuid
 from datetime import datetime
 from pathlib import Path
+import shutil
 from typing import Any
 
 import cv2
@@ -31,7 +32,7 @@ from pydantic import BaseModel, Field
 
 from src.analytics.trends import compare_multiple_runs
 from src.config import DOCS_DIR, ICON_DB_DIR, OUTPUTS_DIR, ensure_base_dirs
-from src.export.pages_publisher import publish_to_github_pages, publish_trend_to_github_pages
+from src.export.pages_publisher import publish_to_github_pages, publish_trend_to_github_pages, rebuild_docs_index
 from src.export.trend_export import export_trend_package
 from src.icons.database import IconDatabase
 from src.layout.detector import LayoutConfig, render_roi_debug_overlay
@@ -647,6 +648,51 @@ def open_output_folder(run_id: str) -> dict[str, str]:
     if os.name == "nt":
         os.startfile(str(run_path))  # type: ignore[attr-defined]
     return {"opened": str(run_path)}
+
+
+@app.delete("/api/runs/{run_id}")
+def delete_run_record(run_id: str) -> dict[str, str]:
+    """Delete a run directory (such as demo_next_week_200 or test runs) from outputs/."""
+    run_path = _resolve_run_dir(run_id)
+    shutil.rmtree(run_path)
+    return {"deleted": run_id}
+
+
+@app.get("/api/pages")
+def list_published_pages() -> list[dict[str, Any]]:
+    """List all published reports inside docs/reports/."""
+    reports_root = DOCS_DIR / "reports"
+    if not reports_root.is_dir():
+        return []
+    out: list[dict[str, Any]] = []
+    for sub in sorted(reports_root.iterdir(), reverse=True):
+        mp = sub / "meta.json"
+        if sub.is_dir() and mp.is_file():
+            try:
+                out.append(json.loads(mp.read_text(encoding="utf-8")))
+            except Exception:
+                continue
+    out.sort(key=lambda m: m.get("published_at", ""), reverse=True)
+    return out
+
+
+@app.delete("/api/pages/{slug}")
+def delete_published_page(slug: str, auto_git_push: bool = True) -> dict[str, Any]:
+    """Delete a published report from docs/reports/<slug>/, rebuild docs/index.html, and optionally git push."""
+    if "/" in slug or "\\" in slug or ".." in slug:
+        raise HTTPException(status_code=400, detail="無效的 slug")
+    reports_root = (DOCS_DIR / "reports").resolve()
+    target = (reports_root / slug).resolve()
+    if not str(target).startswith(str(reports_root)) or not target.is_dir():
+        raise HTTPException(status_code=404, detail=f"找不到已發佈的報告: {slug}")
+    shutil.rmtree(target)
+    rebuild_docs_index(DOCS_DIR)
+    res: dict[str, Any] = {"deleted_slug": slug}
+    if auto_git_push:
+        ok, git_msg = _auto_git_commit_and_push_docs(f"docs(pages): remove {slug}")
+        res["git_pushed"] = ok
+        res["git_message"] = git_msg
+    return res
 
 
 @app.get("/api/runs/{run_id}/files/{rel_path:path}")
