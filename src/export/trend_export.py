@@ -753,7 +753,7 @@ document.getElementById('changeTbl').innerHTML =
   const pctEl = document.getElementById('zoomPctLabel');
   const dlBtn = document.getElementById('btnZoomDownload');
   if (!modal || !stage || !img) return;
-  let scale = 1, tx = 0, ty = 0, dragging = false, startX = 0, startY = 0;
+  let scale = 1, tx = 0, ty = 0, dragging = false, startX = 0, startY = 0, downX = 0, downY = 0;
   function applyTransform() {{
     img.style.transform = `translate(${{tx}}px, ${{ty}}px) scale(${{scale}})`;
     if (pctEl) pctEl.textContent = Math.round(scale * 100) + '%';
@@ -781,14 +781,23 @@ document.getElementById('changeTbl').innerHTML =
   }}, {{ passive: false }});
   stage.addEventListener('mousedown', ev => {{
     if (ev.button !== 0) return;
-    dragging = true; startX = ev.clientX - tx; startY = ev.clientY - ty;
+    dragging = true; downX = ev.clientX; downY = ev.clientY;
+    startX = ev.clientX - tx; startY = ev.clientY - ty;
     stage.classList.add('dragging');
   }});
   window.addEventListener('mousemove', ev => {{
     if (!dragging) return;
     tx = ev.clientX - startX; ty = ev.clientY - startY; applyTransform();
   }});
-  window.addEventListener('mouseup', () => {{ dragging = false; stage.classList.remove('dragging'); }});
+  window.addEventListener('mouseup', ev => {{
+    if (!dragging) return;
+    dragging = false; stage.classList.remove('dragging');
+    if (Math.hypot(ev.clientX - downX, ev.clientY - downY) < 6) {{
+      const r = img.getBoundingClientRect();
+      const insideImg = ev.clientX >= r.left && ev.clientX <= r.right && ev.clientY >= r.top && ev.clientY <= r.bottom;
+      if (!insideImg) closeZoom();
+    }}
+  }});
   stage.addEventListener('dblclick', () => {{
     if (scale > 1.05) {{ scale = 1; tx = 0; ty = 0; }} else {{ scale = 2.2; }}
     applyTransform();
