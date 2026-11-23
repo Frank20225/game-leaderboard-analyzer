@@ -253,29 +253,6 @@ def generate_html_report(
         <div id="onlineScoutResult" style="display:none;margin-top:12px;padding-top:10px;border-top:1px solid var(--border)"></div>
       </div>
 
-      <div class="my-team-bar" id="myTeamBar">
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
-          <div id="myTeamStatus" style="font-size:0.88rem"></div>
-          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
-            <select id="myTeamSelect" style="font-size:0.82rem;padding:6px 10px;max-width:250px"></select>
-            <button class="chip-btn" id="btnToggleCustomMyTeam" type="button">✏️ 自選 8 職業（榜外隊適用）</button>
-            <button class="chip-btn" id="btnClearMyTeam" type="button" style="display:none;border-color:rgba(248,113,113,.55);color:#fca5a5">✖ 解除鎖定</button>
-          </div>
-        </div>
-        <div class="my-team-custom" id="myTeamCustomBox">
-          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:6px">
-            <span class="sub" style="font-size:0.82rem">我方隊名（選填）：</span>
-            <input id="customMyTeamName" type="text" placeholder="例如：我方戰隊" style="padding:5px 9px;font-size:0.83rem;width:180px">
-            <span class="sub" style="font-size:0.8rem">※ 格 1～5 為預設先發、格 6～8 為替補（同職業上限 2 隻）</span>
-          </div>
-          <div class="custom-slots" id="customMyTeamSlots"></div>
-          <div style="display:flex;gap:8px;align-items:center;margin-top:6px">
-            <button class="preset-btn" id="btnSaveCustomMyTeam" type="button" style="padding:5px 12px;font-size:0.82rem">💾 儲存並鎖定我方陣容</button>
-            <span class="sub" id="customMyTeamWarn" style="color:var(--red);font-size:0.82rem"></span>
-          </div>
-        </div>
-      </div>
-
       <div class="score-filter-banner" id="scoreFilterBanner">
         <span id="scoreFilterText"></span>
         <button class="chip-btn" id="btnClearScoreFilter" type="button">✖ 清除積分篩選（恢復顯示全部）</button>
@@ -357,6 +334,29 @@ def generate_html_report(
   </section>
 
   <section id="tab-bracket" class="panel">
+    <div class="my-team-bar" id="myTeamBar">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+        <div id="myTeamStatus" style="font-size:0.88rem"></div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+          <select id="myTeamSelect" style="font-size:0.82rem;padding:6px 10px;max-width:250px"></select>
+          <button class="chip-btn" id="btnToggleCustomMyTeam" type="button">✏️ 自選 8 職業（榜外隊適用）</button>
+          <button class="chip-btn" id="btnClearMyTeam" type="button" style="display:none;border-color:rgba(248,113,113,.55);color:#fca5a5">✖ 解除鎖定</button>
+        </div>
+      </div>
+      <div class="my-team-custom" id="myTeamCustomBox">
+        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:6px">
+          <span class="sub" style="font-size:0.82rem">我方隊名（選填）：</span>
+          <input id="customMyTeamName" type="text" placeholder="例如：我方戰隊" style="padding:5px 9px;font-size:0.83rem;width:180px">
+          <span class="sub" style="font-size:0.8rem">※ 格 1～5 為預設先發、格 6～8 為替補（同職業上限 2 隻）</span>
+        </div>
+        <div class="custom-slots" id="customMyTeamSlots"></div>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:6px">
+          <button class="preset-btn" id="btnSaveCustomMyTeam" type="button" style="padding:5px 12px;font-size:0.82rem">💾 儲存並鎖定我方陣容</button>
+          <span class="sub" id="customMyTeamWarn" style="color:var(--red);font-size:0.82rem"></span>
+        </div>
+      </div>
+    </div>
+
     <div id="scoreBracketCard">
       <div class="card">
         <h2>🎯 同分圈假想敵環境（教練備戰專區）<button class="preset-btn" id="btnJumpBracketToRaw" type="button" style="padding:6px 12px;font-size:0.82rem">🔍 在排行榜查看此同分圈對手</button></h2>
@@ -646,7 +646,7 @@ function renderMyTeamBar() {{
     selEl.value = myTeam.mode === 'rank' && myTeam.rank ? String(myTeam.rank) : '';
     if (clrBtn) clrBtn.style.display = 'inline-block';
   }} else {{
-    statusEl.innerHTML = `🛡️ <b>教練對位模式（未鎖定我方隊伍）</b> <span class="sub">— 選擇我方戰隊或手動自選 8 職業後，展開任何對手（或截圖秒查）將自動顯示「10 秒客觀對位對照」</span>`;
+    statusEl.innerHTML = `🛡️ <b>教練對位模式（未鎖定我方隊伍）</b> <span class="sub">— 鎖定我方戰隊或自選 8 職業後，此頁將自動解鎖「我方同分圈 (±1分)」，且在分頁 1 查對手時自動展開「10 秒客觀對位對照」</span>`;
     selEl.value = '';
     if (clrBtn) clrBtn.style.display = 'none';
   }}
