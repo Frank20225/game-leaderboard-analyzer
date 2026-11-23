@@ -188,13 +188,10 @@ def generate_html_report(
   <section class="kpis" id="kpiRow"></section>
 
   <nav class="tabs">
-    <button class="tab active" data-tab="raw">1. 完整排行榜查詢 &amp; 對手秒查</button>
-    <button class="tab" data-tab="quad">2. Meta 四象限＆出場率</button>
-    <button class="tab" data-tab="doubles">3. 0/1/2隻 雙職業效益</button>
-    <button class="tab" data-tab="tiers">4. 各名次區間趨勢＆雙職業結構</button>
-    <button class="tab" data-tab="synergy">5. 綁定搭檔/二選一搶位＆流派</button>
-    <button class="tab" data-tab="builder">🧪 6. 我方 8 人名單健檢器</button>
-    <button class="tab" data-tab="cards">🖼️ 7. 四大統計圖卡總覽 (點圖放大)</button>
+    <button class="tab active" data-tab="raw">🔍 1. 排行榜查詢</button>
+    <button class="tab" data-tab="quad">📊 2. 職業出場＆雙職業</button>
+    <button class="tab" data-tab="synergy">🧩 3. 陣容搭配＆流派</button>
+    <button class="tab" data-tab="builder">🧪 4. 我方陣容健檢</button>
   </nav>
 
   <section id="tab-raw" class="panel active">
@@ -261,27 +258,22 @@ def generate_html_report(
 
   <section id="tab-quad" class="panel">
     <div class="card">
-      <h2>Meta 四象限戰略圖（X＝隊伍出場率，Y＝平均排名越上越強）<span class="sub" style="font-size:0.82rem">💡 點擊下方高清圖卡可全螢幕放大與滾輪縮放</span></h2>
-      <div id="quadCardWrap" style="margin-bottom:12px"></div>
-      <details>
+      <h2>14 職業環境總表 ＆ Meta 四象限戰略圖 <span class="sub" style="font-size:0.82rem">💡 點擊任何圖卡可全螢幕放大與滾輪縮放</span></h2>
+      <div id="quadCardWrap" style="margin-bottom:14px"></div>
+      <div class="sub" style="background:#0f172a;border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:12px;line-height:1.65">
+        💡 <b>指標白話說明：</b><br>
+        • <b>前段班偏好倍率</b>＝前段班（Top 50 / Top 10）出場率 ÷ 全場出場率。<b>&gt; 1.0x</b> 代表前段班強隊更愛帶；<b>≈ 1.0x</b> 代表各分段普及度相近；<b>&lt; 1.0x</b> 代表偏中後段帶得多。<br>
+        • <b>名次相關性（-1 ～ +1）</b>＝衡量「帶越多隻該職業，名次是否越靠前」。<b>負值（綠色，如 -0.21 帶越多名次越前）代表強勢職業</b>；接近 0 代表無明顯關聯；<b>正值（紅色）代表偏中後段</b>。
+      </div>
+      <div class="table-wrap"><table id="occTable"></table></div>
+      <details style="margin-top:12px">
         <summary style="cursor:pointer;color:var(--accent);font-weight:600">🔍 展開互動式 SVG 向量版四象限圖</summary>
         <div class="quad-wrap" id="quadSvgBox" style="margin-top:10px"></div>
       </details>
     </div>
-    <div class="card">
-      <h2>職業環境總表</h2>
-      <div class="sub" style="background:#0f172a;border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:12px;line-height:1.65">
-        💡 <b>指標白話說明：</b><br>
-        • <b>前段班偏好倍率</b>＝前段班（Top 50 / Top 10）出場率 ÷ 全場出場率。<b>&gt; 1.0x</b> 代表前段班強隊更愛帶（越高越偏向高端黑馬）；<b>≈ 1.0x</b> 代表各分段普及度差不多；<b>&lt; 1.0x</b> 代表偏中後段帶得多。<br>
-        • <b>名次相關性（-1 ～ +1）</b>＝衡量「帶越多隻該職業，名次是否越靠前」。因名次數字越小越強，<b>負值（綠色，如 -0.21 帶越多名次越前）代表強勢職業</b>；接近 0 代表與名次無明顯關聯；<b>正值（紅色）代表偏中後段</b>。
-      </div>
-      <div class="table-wrap"><table id="occTable"></table></div>
-    </div>
-  </section>
 
-  <section id="tab-doubles" class="panel">
     <div class="card">
-      <h2>0 隻（不帶）vs 1 隻（單職業）vs 2 隻（雙職業）平均排名對比 <span class="sub" style="font-size:0.82rem">💡 點擊圖片可放大／滾輪縮放／拖曳檢視</span></h2>
+      <h2>0 隻（不帶）vs 1 隻（單職業）vs 2 隻（雙職業）平均排名對比 <span class="sub" style="font-size:0.82rem">💡 點圖可放大縮放</span></h2>
       <p class="sub">賽制規定 8 人名單同職業最多 2 名。圖中越靠<b>右側</b>代表平均排名越高，紅菱（帶 2 隻雙職業）明顯在藍方（帶 1 隻單職業）右邊即代表該職業非常值得配置 2 隻跨局輪轉！</p>
       <div id="copyChartWrap" style="margin:12px 0"></div>
       <details style="margin-top:12px">
@@ -289,66 +281,60 @@ def generate_html_report(
         <div class="table-wrap" style="margin-top:10px"><table id="copyTable"></table></div>
       </details>
     </div>
-  </section>
 
-  <section id="tab-tiers" class="panel">
     <div class="card">
-      <h2>各名次區間的職業出場率（前段班 vs 中後段班差在哪？）<span class="sub" style="font-size:0.82rem">💡 點擊圖卡可放大檢視</span></h2>
-      <div id="tierCardWrap" style="margin-bottom:14px"></div>
-      <p class="sub">💡 <b>怎麼看？</b>橫著從左往右看（左邊是前 10 名、右邊是後段班）：<b>越左邊數字越高（底色越亮）</b>＝頂尖強隊越愛用；<b>左右差不多</b>＝各分段都會帶的標配；<b>越右邊越高</b>＝中後段隊伍帶得較多。</p>
-      <div class="table-wrap"><table id="tierHeatTable"></table></div>
-    </div>
-    <div class="card">
-      <h2>戰隊「雙職業組數」策略結構（8 異職 vs 1 / 2 / 3 組雙職業）</h2>
-      <div class="table-wrap"><table id="dpStructTable"></table></div>
+      <h2>各名次區間職業出場率 ＆ 雙職業組數結構 <span class="sub" style="font-size:0.82rem">💡 點圖可放大縮放</span></h2>
+      <div id="tierCardWrap" style="margin-bottom:12px"></div>
+      <details style="margin-top:10px">
+        <summary style="cursor:pointer;color:var(--accent);font-weight:600">📋 展開查看「各名次區間出場率明細表」與「雙職業組數結構表」</summary>
+        <p class="sub" style="margin:10px 0 6px">💡 橫著從左往右看（左邊是前 10 名、右邊是後段班）：越左邊數字越高＝頂尖強隊越愛用。</p>
+        <div class="table-wrap" style="margin-bottom:14px"><table id="tierHeatTable"></table></div>
+        <h3 style="font-size:0.98rem;margin:10px 0 6px">戰隊「雙職業組數」策略結構（8 異職 vs 1 / 2 / 3 組雙職業）</h3>
+        <div class="table-wrap"><table id="dpStructTable"></table></div>
+      </details>
     </div>
   </section>
 
   <section id="tab-synergy" class="panel">
     <div class="card">
-      <h2>常見綁定搭檔 ＆ 二選一搶位矩陣圖（點圖可放大縮放）</h2>
-      <div id="synCardWrap" style="margin-bottom:10px"></div>
-    </div>
-    <div class="card">
       <h2>主流 8 人建隊流派骨架（Roster Archetypes）</h2>
       <div class="table-wrap"><table id="archTable"></table></div>
     </div>
+
     <div class="card">
-      <h2>常見綁定搭檔（搭檔倍率 ≥ 1.15x）</h2>
-      <p class="sub">排除熱門職相乘造成的假協同：搭檔倍率越高代表這兩個職業越常「成套綁定出場」。</p>
-      <div class="table-wrap"><table id="synTable"></table></div>
-    </div>
-    <div class="card">
-      <h2>二選一搶位組合（搭檔倍率 ≤ 0.85x）</h2>
-      <p class="sub">帶了 A 就明顯較少帶 B，代表這兩個職業常在搶同一個名單位置（二選一）。</p>
-      <div class="table-wrap"><table id="subTable"></table></div>
-    </div>
-    <div class="card">
-      <h2>熱門三職業組合（每隊去重）</h2>
-      <div class="table-wrap"><table id="tripleTable"></table></div>
+      <h2>常見綁定搭檔 ＆ 二選一搶位分析 <span class="sub" style="font-size:0.82rem">💡 點擊矩陣圖可全螢幕放大縮放</span></h2>
+      <div id="synCardWrap" style="margin-bottom:14px"></div>
+      <div class="cards-grid">
+        <div>
+          <h3 style="margin:0 0 6px;font-size:1rem;color:var(--green)">🔥 常見綁定搭檔（搭檔倍率 ≥ 1.15x）</h3>
+          <p class="sub" style="margin:0 0 8px;font-size:0.82rem">倍率越高代表這兩個職業越常「成套綁定出場」。</p>
+          <div class="table-wrap"><table id="synTable"></table></div>
+        </div>
+        <div>
+          <h3 style="margin:0 0 6px;font-size:1rem;color:var(--accent2)">⚡ 二選一搶位組合（搭檔倍率 ≤ 0.85x）</h3>
+          <p class="sub" style="margin:0 0 8px;font-size:0.82rem">帶了 A 就明顯較少帶 B，代表常在搶同一個位置。</p>
+          <div class="table-wrap"><table id="subTable"></table></div>
+        </div>
+      </div>
+      <details style="margin-top:14px">
+        <summary style="cursor:pointer;color:var(--accent);font-weight:600">📋 展開查看「熱門三職業組合排行（前 35 組）」</summary>
+        <div class="table-wrap" style="margin-top:10px"><table id="tripleTable"></table></div>
+      </details>
     </div>
   </section>
 
   <section id="tab-builder" class="panel">
     <div class="card">
       <h2>🧪 我方 8 人名單健檢器 ＆ AI 換角最佳化模擬</h2>
-      <p class="sub">依據本場 200 隊大數據（0/1/2 隻平均名次、Synergy Lift 協同矩陣與 BO5 鎖人規則），即時評估你的 8 人名單強度、抓出互斥陷阱，並比對排行榜上最相似的實戰強隊！</p>
+      <p class="sub">依據本場 200 隊大數據（0/1/2 隻平均名次、搭檔倍率矩陣與同職上限 2 規則），即時評估你的 8 人名單強度，並比對排行榜上最相似的實戰強隊！</p>
       <div class="filter-bar" style="margin-top:10px">
         <span class="sub">一鍵套用大數據推薦陣容：</span>
-        <button class="preset-btn" data-preset="補師,法師,詩人,賢者,德魯伊,法師,流氓,武僧">🔥 推薦一：雙法跨局控場陣（前5預設先發＋後3替補輪轉，均排 #57.6）</button>
-        <button class="preset-btn" data-preset="補師,法師,詩人,賢者,德魯伊,流氓,騎士,武僧">👑 推薦二：8 異職全能冠軍陣（5v5德魯伊AOE＋1v1賢/流/騎/武）</button>
-        <button class="preset-btn" data-preset="補師,法師,詩人,賢者,德魯伊,詩人,流氓,武僧">🎵 推薦三：雙詩人雙流派輪轉陣（分攤3v3/2v2或一輔一輸出，均排 #87.8）</button>
+        <button class="preset-btn" data-preset="補師,法師,詩人,賢者,德魯伊,法師,流氓,武僧">🔥 推薦一：雙法跨局控場陣（均排 #57.6）</button>
+        <button class="preset-btn" data-preset="補師,法師,詩人,賢者,德魯伊,流氓,騎士,武僧">👑 推薦二：8 異職全能陣（Top 10 主流）</button>
+        <button class="preset-btn" data-preset="補師,法師,詩人,賢者,德魯伊,詩人,流氓,武僧">🎵 推薦三：雙詩人雙流派陣（均排 #87.8）</button>
       </div>
       <div class="builder-grid" id="builderSlots"></div>
       <div id="builderResult"></div>
-    </div>
-  </section>
-
-  <section id="tab-cards" class="panel">
-    <div class="card">
-      <h2>🖼️ 戰隊排陣專業統計圖卡總覽（4 張王牌圖表，點擊任一圖卡可放大／滾輪縮放／拖曳檢視或下載）</h2>
-      <p class="sub">所有圖卡皆已直接內嵌於本報告中，點擊圖片即可開啟全螢幕互動放大鏡（支援滑鼠滾輪縮放、按住左鍵拖曳平移、雙擊放大與原圖下載）。</p>
-      <div class="cards-grid" id="allShareCardsGrid"></div>
     </div>
   </section>
 

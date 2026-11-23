@@ -486,10 +486,10 @@ def generate_trend_html(
   <section class="kpis" id="kpiRow"></section>
 
   <nav class="tabs">
-    <button class="tab active" data-tab="standings">🏆 1. 聯賽當下積分排行榜（以當下名次為主軸）</button>
-    <button class="tab" data-tab="archetypes">⚔️ 2. 八大陣容體系強度趨勢（不靠換角看環境）</button>
-    <button class="tab" data-tab="classes">📊 3. 職業＆單雙職業實戰強度動能</button>
-    <button class="tab" data-tab="climbers">🚀 4. 黑馬爬升榜 / 掉分榜 ＆ 副角色切換</button>
+    <button class="tab active" data-tab="standings">🏆 1. 聯賽積分榜</button>
+    <button class="tab" data-tab="archetypes">⚔️ 2. 陣容體系趨勢</button>
+    <button class="tab" data-tab="classes">📊 3. 職業強度動能</button>
+    <button class="tab" data-tab="climbers">🚀 4. 升降與換角榜</button>
   </nav>
 
   <section id="tab-standings" class="panel active">
@@ -525,10 +525,10 @@ def generate_trend_html(
         因此真正的 Meta 趨勢不在於「多少人換職業」，而在於隨賽程推進：<b>哪一套 8 人陣容體系的「平均排名正在集體往上爬」、「爬升隊伍比例（勝率動能）最高」、「擠進 Top 30 的席次變多」</b>！
       </div>
       <div class="table-wrap"><table id="sysTbl"></table></div>
-    </div>
-    <div class="card">
-      <h2>雙職業組數策略（0 組雙職業 vs 1 / 2 / 3 組雙職業）跨期平均排名演變</h2>
-      <div class="table-wrap"><table id="dpTbl"></table></div>
+      <details style="margin-top:14px">
+        <summary style="cursor:pointer;color:var(--accent);font-weight:600">📋 展開查看「雙職業組數策略（0 / 1 / 2 / 3 組雙職業）跨期平均排名演變表」</summary>
+        <div class="table-wrap" style="margin-top:10px"><table id="dpTbl"></table></div>
+      </details>
     </div>
   </section>
 
