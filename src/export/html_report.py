@@ -223,6 +223,7 @@ def generate_html_report(
   <nav class="tabs">
     <button class="tab active" data-tab="raw">🔍 1. 排行榜與對手秒查</button>
     <button class="tab" data-tab="quad">📊 2. 職業出場率＆雙職業分析</button>
+    <button class="tab" data-tab="bracket">🏆 3. 積分門檻線＆同分圈假想敵</button>
   </nav>
 
   <section id="tab-raw" class="panel active">
@@ -353,22 +354,13 @@ def generate_html_report(
         <div class="table-wrap"><table id="dpStructTable"></table></div>
       </details>
     </div>
+  </section>
 
-    <div class="card" id="scoreBracketCard">
-      <h2>🏆 積分門檻線 ＆ 同分圈假想敵環境 <span class="sub" style="font-size:0.82rem">教練備戰專區：看卡位分數線與我方會撞到的真實對手生態</span></h2>
-      <div id="cutoffGrid" class="cutoff-grid"></div>
-      <details style="margin-bottom:16px">
-        <summary style="cursor:pointer;color:var(--accent);font-weight:600">📊 展開查看各積分同分擠壓密度表（點擊任一積分可立即篩選該分數段）</summary>
-        <div class="table-wrap" style="margin-top:10px"><table id="scoreDensityTable"></table></div>
-      </details>
-      <div style="border-top:1px solid var(--border);padding-top:14px">
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:10px">
-          <div>
-            <b style="font-size:0.98rem">🎯 同分圈假想敵分析（決定本週團練重點）</b>
-            <div class="sub" style="font-size:0.83rem">點選目標分數段或自訂區間，立即對比「會撞到的對手」與「全服平均」的職業差異。</div>
-          </div>
-          <button class="preset-btn" id="btnJumpBracketToRaw" type="button" style="padding:6px 12px;font-size:0.82rem">🔍 在排行榜查看此同分圈對手</button>
-        </div>
+  <section id="tab-bracket" class="panel">
+    <div id="scoreBracketCard">
+      <div class="card">
+        <h2>🎯 同分圈假想敵環境（教練備戰專區）<button class="preset-btn" id="btnJumpBracketToRaw" type="button" style="padding:6px 12px;font-size:0.82rem">🔍 在排行榜查看此同分圈對手</button></h2>
+        <p class="sub" style="margin-top:0">點選目標分數段或自訂區間，立即對比「接下來會撞到的對手」與「全服平均」的職業差異，決定本週團練與針對重點。</p>
         <div class="filter-bar" id="bracketPresetBar"></div>
         <div class="controls" style="margin-bottom:10px">
           <span class="sub" style="font-size:0.84rem">自訂積分區間：</span>
@@ -378,10 +370,19 @@ def generate_html_report(
           <span class="sub" id="bracketMetaText" style="font-weight:600;color:var(--accent)"></span>
         </div>
         <div class="bracket-kpis" id="bracketKpiGrid"></div>
-        <div style="margin-top:8px">
-          <div class="sub" style="font-size:0.83rem;margin-bottom:4px"><b>該同分圈各職業出場率（括號為相較全服平均之增減）：</b></div>
+        <div style="margin-top:12px">
+          <div class="sub" style="font-size:0.84rem;margin-bottom:6px"><b>該同分圈各職業出場率（括號為相較全服平均之增減）：</b></div>
           <div class="bracket-occ-grid" id="bracketOccGrid"></div>
         </div>
+      </div>
+
+      <div class="card">
+        <h2>🏆 關鍵排名積分門檻線 ＆ 各分數同分擠壓密度 <span class="sub" style="font-size:0.82rem">💡 點擊下方任一積分列可立即切換上方假想敵分析</span></h2>
+        <div id="cutoffGrid" class="cutoff-grid"></div>
+        <details open>
+          <summary style="cursor:pointer;color:var(--accent);font-weight:600">📊 各積分同分擠壓密度表（點擊任一積分列可立即檢視該分數段）</summary>
+          <div class="table-wrap" style="margin-top:10px"><table id="scoreDensityTable"></table></div>
+        </details>
       </div>
     </div>
   </section>
@@ -1039,6 +1040,8 @@ let renderBracketPresets = null;
   const scoreCutoffs = A.score_cutoffs || [];
   const teamsWithScore = A.raw_data.filter(t => t.score !== null && t.score !== undefined);
   if (!card || !teamsWithScore.length || !scoreTiers.length) {{
+    const tabBtn = document.querySelector('.tab[data-tab="bracket"]');
+    if (tabBtn) tabBtn.style.display = 'none';
     if (card) card.style.display = 'none';
     return;
   }}
@@ -1179,6 +1182,7 @@ let renderBracketPresets = null;
   window.selectScoreBracket = function(lo, hi) {{
     document.querySelectorAll('#bracketPresetBar .chip-btn').forEach(b => b.classList.remove('active'));
     renderBracket(lo, hi);
+    card.scrollIntoView({{ behavior: 'smooth', block: 'start' }});
   }};
 
   // Build smart score presets based on actual cutoffs + C3 myTeam score!
