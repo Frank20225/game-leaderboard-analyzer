@@ -275,6 +275,9 @@ def compute_leaderboard_analytics(
         else:
             rho_val, pval_val = 0.0, 1.0
 
+        low_sample_min_teams = max(5, int(round(total_teams * 0.05)))
+        is_low_sample = team_count < low_sample_min_teams
+
         # 0 / 1 / 2 copy breakdown for roster-building decisions!
         def _bucket_stats(idxs: list[int]) -> dict[str, Any]:
             if not idxs:
@@ -285,7 +288,7 @@ def compute_leaderboard_analytics(
                 "rate": round(len(idxs) / max(1, total_teams), 4),
                 "avg_rank": round(float(np.mean(b_ranks)), 2),
                 "top10_teams": len(set(idxs).intersection(top10_set)),
-                "low_sample": len(idxs) < 5,
+                "low_sample": len(idxs) < low_sample_min_teams,
             }
 
         c0_stat = _bucket_stats(idx_0)
@@ -300,8 +303,8 @@ def compute_leaderboard_analytics(
         # Meta Quadrant classification (X threshold = 50% presence, Y threshold = overall_avg_rank)
         is_popular = team_rate >= 0.50
         is_strong = avg_rank <= overall_avg_rank
-        if team_count < 5:
-            quadrant = "低樣本觀察 (n<5)"
+        if is_low_sample:
+            quadrant = f"低樣本觀察 (<{low_sample_min_teams}隊)"
         elif is_popular and is_strong:
             quadrant = "T0 版本核心"
         elif (not is_popular) and is_strong:
@@ -325,7 +328,7 @@ def compute_leaderboard_analytics(
                 "avg_rank": avg_rank,
                 "median_rank": round(float(np.median(carrying_ranks)), 1) if carrying_ranks else 0.0,
                 "best_rank": min(carrying_ranks) if carrying_ranks else 0,
-                "low_sample": team_count < 5,
+                "low_sample": is_low_sample,
                 "quadrant": quadrant,
                 "tier_rates": tier_rates,
                 "top10_rate": t10_rate,

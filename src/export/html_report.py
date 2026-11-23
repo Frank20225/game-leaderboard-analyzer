@@ -76,7 +76,6 @@ def generate_html_report(
             ("meta_quadrant", "01_meta_quadrant.png"),
             ("copy_impact", "02_copy_count_impact.png"),
             ("tier_heatmap", "03_tier_heatmap_and_doubles.png"),
-            ("synergy_matrix", "04_synergy_matrix.png"),
         ]:
             fp = cdir / fname
             if fp.is_file():
@@ -189,10 +188,8 @@ def generate_html_report(
   <section class="kpis" id="kpiRow"></section>
 
   <nav class="tabs">
-    <button class="tab active" data-tab="raw">🔍 1. 排行榜查詢</button>
-    <button class="tab" data-tab="quad">📊 2. 職業出場＆雙職業</button>
-    <button class="tab" data-tab="synergy">🧩 3. 陣容搭配＆流派</button>
-    <button class="tab" data-tab="builder">🧪 4. 我方陣容健檢</button>
+    <button class="tab active" data-tab="raw">🔍 1. 排行榜與對手秒查</button>
+    <button class="tab" data-tab="quad">📊 2. 職業出場率＆雙職業分析</button>
   </nav>
 
   <section id="tab-raw" class="panel active">
@@ -296,49 +293,6 @@ def generate_html_report(
     </div>
   </section>
 
-  <section id="tab-synergy" class="panel">
-    <div class="card">
-      <h2>主流 8 人建隊流派骨架（Roster Archetypes）</h2>
-      <div class="table-wrap"><table id="archTable"></table></div>
-    </div>
-
-    <div class="card">
-      <h2>常見綁定搭檔 ＆ 二選一搶位分析 <span class="sub" style="font-size:0.82rem">💡 點擊矩陣圖可全螢幕放大縮放</span></h2>
-      <div id="synCardWrap" style="margin-bottom:14px"></div>
-      <div class="cards-grid">
-        <div>
-          <h3 style="margin:0 0 6px;font-size:1rem;color:var(--green)">🔥 常見綁定搭檔（搭檔倍率 ≥ 1.15x）</h3>
-          <p class="sub" style="margin:0 0 8px;font-size:0.82rem">倍率越高代表這兩個職業越常「成套綁定出場」。</p>
-          <div class="table-wrap"><table id="synTable"></table></div>
-        </div>
-        <div>
-          <h3 style="margin:0 0 6px;font-size:1rem;color:var(--accent2)">⚡ 二選一搶位組合（搭檔倍率 ≤ 0.85x）</h3>
-          <p class="sub" style="margin:0 0 8px;font-size:0.82rem">帶了 A 就明顯較少帶 B，代表常在搶同一個位置。</p>
-          <div class="table-wrap"><table id="subTable"></table></div>
-        </div>
-      </div>
-      <details style="margin-top:14px">
-        <summary style="cursor:pointer;color:var(--accent);font-weight:600">📋 展開查看「熱門三職業組合排行（前 35 組）」</summary>
-        <div class="table-wrap" style="margin-top:10px"><table id="tripleTable"></table></div>
-      </details>
-    </div>
-  </section>
-
-  <section id="tab-builder" class="panel">
-    <div class="card">
-      <h2>🧪 我方 8 人名單健檢器 ＆ AI 換角最佳化模擬</h2>
-      <p class="sub">依據本場 200 隊大數據（0/1/2 隻平均名次、搭檔倍率矩陣與同職上限 2 規則），即時評估你的 8 人名單強度，並比對排行榜上最相似的實戰強隊！</p>
-      <div class="filter-bar" style="margin-top:10px">
-        <span class="sub">一鍵套用大數據推薦陣容：</span>
-        <button class="preset-btn" data-preset="補師,法師,詩人,賢者,德魯伊,法師,流氓,武僧">🔥 推薦一：雙法跨局控場陣（均排 #57.6）</button>
-        <button class="preset-btn" data-preset="補師,法師,詩人,賢者,德魯伊,流氓,騎士,武僧">👑 推薦二：8 異職全能陣（Top 10 主流）</button>
-        <button class="preset-btn" data-preset="補師,法師,詩人,賢者,德魯伊,詩人,流氓,武僧">🎵 推薦三：雙詩人雙流派陣（均排 #87.8）</button>
-      </div>
-      <div class="builder-grid" id="builderSlots"></div>
-      <div id="builderResult"></div>
-    </div>
-  </section>
-
   <footer>Game Leaderboard Analyzer v2 — Tournament Roster Strategy Report</footer>
 </div>
 
@@ -375,13 +329,14 @@ document.getElementById('genTime').textContent = '產生時間：' + DATA.genera
 const ov = A.overview;
 document.getElementById('reportSub').textContent = `涵蓋排名 #${{ov.min_rank}}～#${{ov.max_rank}}｜共 ${{ov.total_teams}} 隊（8人名單・同職上限2・統一範本 BO5）`;
 
-const bestDP = [...A.double_pick_structure].sort((a,b) => a.avg_rank - b.avg_rank)[0];
-const bestSyn = A.synergy_pairs[0];
+const bestDP = [...A.double_pick_structure].filter(d => !d.low_sample).sort((a,b) => a.avg_rank - b.avg_rank)[0] || A.double_pick_structure[0];
+const topOcc = A.occupation_frequency[0];
+const bestDoubleOcc = [...A.occupation_frequency].filter(r => !r.low_sample && r.copy_2 && !r.copy_2.low_sample && r.copy_2.avg_rank).sort((a,b) => a.copy_2.avg_rank - b.copy_2.avg_rank)[0];
 document.getElementById('kpiRow').innerHTML = [
   ['分析隊伍數', ov.total_teams + ' 隊'],
-  ['辨識職業數', ov.distinct_occupations + ' 種'],
+  ['熱門第一職業', topOcc ? `${{topOcc.occupation}} (${{pct(topOcc.team_presence_rate)}})` : '-'],
+  ['最佳雙職業效益', bestDoubleOcc ? `雙${{bestDoubleOcc.occupation}} (${{bestDoubleOcc.copy_2.teams}}隊・均#${{bestDoubleOcc.copy_2.avg_rank}})` : '-'],
   ['最強勢雙職業結構', bestDP ? `${{bestDP.label}} (均#${{bestDP.avg_rank}})` : '-'],
-  ['最強綁定搭檔', bestSyn ? `${{bestSyn.combination}} (${{bestSyn.synergy_lift}}x)` : '-'],
 ].map(([l, v]) => `<div class="kpi"><div class="lbl">${{l}}</div><div class="val">${{esc(v)}}</div></div>`).join('');
 
 document.querySelectorAll('.tab').forEach(btn => btn.onclick = () => {{
@@ -391,9 +346,11 @@ document.querySelectorAll('.tab').forEach(btn => btn.onclick = () => {{
   document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
 }});
 
-// Render crisp inline SVG Meta Quadrant
+// Render crisp inline SVG Meta Quadrant (Scheme A: exclude <5% low-sample occupations so axes stay crisp)
 (function renderQuad() {{
-  const rows = A.occupation_frequency;
+  const mainRows = A.occupation_frequency.filter(r => !r.low_sample);
+  const rows = mainRows.length ? mainRows : A.occupation_frequency;
+  const excl = A.occupation_frequency.filter(r => r.low_sample);
   if (!rows.length) return;
   const W = 920, H = 540, padL = 62, padR = 30, padT = 36, padB = 48;
   const minR = Math.max(1, Math.min(...rows.map(r => r.avg_rank)) - 2);
@@ -410,10 +367,12 @@ document.querySelectorAll('.tab').forEach(btn => btn.onclick = () => {{
     const imgTag = ICONS[r.occupation]
       ? `<defs><clipPath id="${{clipId}}"><circle cx="${{cx}}" cy="${{cy}}" r="15"/></clipPath></defs><image href="${{ICONS[r.occupation]}}" x="${{cx-15}}" y="${{cy-15}}" width="30" height="30" clip-path="url(#${{clipId}})"/>`
       : `<circle cx="${{cx}}" cy="${{cy}}" r="11" fill="#38bdf8"/>`;
-    const ring = r.low_sample ? `<circle cx="${{cx}}" cy="${{cy}}" r="18" fill="none" stroke="#f59e0b" stroke-dasharray="4 3" stroke-width="1.5"/>` : '';
-    items += `${{ring}}${{imgTag}}<text x="${{cx}}" y="${{cy+27}}" text-anchor="middle" fill="${{r.low_sample ? '#fcd34d' : '#f8fafc'}}" font-size="11" font-weight="700">${{esc(r.occupation)}} #${{r.avg_rank}}</text>`;
+    items += `${{imgTag}}<text x="${{cx}}" y="${{cy+27}}" text-anchor="middle" fill="#f8fafc" font-size="11" font-weight="700">${{esc(r.occupation)}} #${{r.avg_rank}}</text>`;
   }});
 
+  const exclHtml = excl.length
+    ? `<div class="sub" style="margin-top:6px;text-align:center;font-size:0.82rem">ⓘ 已排除出場率 &lt;5% 極低樣本職業以免拉歪座標軸：${{excl.map(r => `${{esc(r.occupation)}} (${{r.team_count}}隊)`).join('、')}}</div>`
+    : '';
   document.getElementById('quadSvgBox').innerHTML = `
   <svg class="quad" viewBox="0 0 ${{W}} ${{H}}">
     <rect x="${{xMid}}" y="${{padT}}" width="${{W-padR-xMid}}" height="${{yMid-padT}}" fill="#38bdf8" fill-opacity="0.06"/>
@@ -436,10 +395,11 @@ document.querySelectorAll('.tab').forEach(btn => btn.onclick = () => {{
       <tspan x="20" dy="16">名</tspan>
     </text>
     ${{items}}
-  </svg>`;
+  </svg>${{exclHtml}}`;
 }})();
 
-const fmtRho = r => {{
+const fmtRho = (r, lowSample) => {{
+  if (lowSample) return `<span class="sub">${{Number(r || 0)}} (樣本不足)</span>`;
   const v = Number(r || 0);
   if (v <= -0.15) return `<span class="pos">${{v}} (🔥帶越多名次越前)</span>`;
   if (v <= -0.07) return `<span class="pos">${{v}} (↗偏前段)</span>`;
@@ -450,7 +410,11 @@ const fmtRho = r => {{
 
 document.getElementById('occTable').innerHTML =
   '<thead><tr><th>職業</th><th>Meta 象限</th><th>隊伍出場率(隊數)</th><th>總席次佔比</th><th>雙職業率(帶2隻隊數)</th><th>平均排名</th><th title="前段班出場率 ÷ 全體出場率，>1.0x 代表前段班強隊更偏愛">前段班偏好倍率 ⓘ</th><th title="負值代表帶越多隻名次越靠前，正值代表偏向中後段班">名次相關性 ⓘ</th></tr></thead><tbody>' +
-  A.occupation_frequency.map(r => `<tr><td><span class="lbl-flex">${{ico(r.occupation)}}${{esc(r.occupation)}}</span></td><td><span class="q-tag ${{qCls(r.quadrant)}}">${{esc(r.quadrant)}}</span></td><td><b>${{pct(r.team_presence_rate)}}</b> (${{r.team_count}}隊)</td><td>${{pct(r.slot_rate)}} (${{r.slot_count}})</td><td>${{pct(r.double_pick_rate)}} (${{r.double_pick_teams}}隊)</td><td><b>#${{r.avg_rank}}</b></td><td><b>${{r.top_tier_lift}}x</b></td><td>${{fmtRho(r.spearman_r)}}</td></tr>`).join('') +
+  A.occupation_frequency.map(r => {{
+    const lowTag = r.low_sample ? ' <span class="sub" style="font-size:0.75rem">(低樣本參考)</span>' : '';
+    const rowStyle = r.low_sample ? ' style="opacity:0.68"' : '';
+    return `<tr${{rowStyle}}><td><span class="lbl-flex">${{ico(r.occupation)}}${{esc(r.occupation)}}</span></td><td><span class="q-tag ${{qCls(r.quadrant)}}">${{esc(r.quadrant)}}</span></td><td><b>${{pct(r.team_presence_rate)}}</b> (${{r.team_count}}隊)</td><td>${{pct(r.slot_rate)}} (${{r.slot_count}})</td><td>${{pct(r.double_pick_rate)}} (${{r.double_pick_teams}}隊)</td><td><b>#${{r.avg_rank}}</b>${{lowTag}}</td><td><b>${{r.top_tier_lift}}x</b>${{lowTag}}</td><td>${{fmtRho(r.spearman_r, r.low_sample)}}</td></tr>`;
+  }}).join('') +
   '</tbody>';
 
 const CARDS = DATA.cards || {{}};
@@ -466,29 +430,15 @@ if (CARDS.copy_impact) {{
 if (CARDS.tier_heatmap && document.getElementById('tierCardWrap')) {{
   document.getElementById('tierCardWrap').innerHTML = mkZoomImg(CARDS.tier_heatmap, '各名次區間職業出場率 ＆ 雙職業組隊結構');
 }}
-if (CARDS.synergy_matrix && document.getElementById('synCardWrap')) {{
-  document.getElementById('synCardWrap').innerHTML = mkZoomImg(CARDS.synergy_matrix, '常見綁定搭檔 ＆ 二選一搶位矩陣（搭檔倍率）', '860px');
-}}
-if (document.getElementById('allShareCardsGrid')) {{
-  const cardDefs = [
-    ['meta_quadrant', '1. Meta 四象限戰略圖'],
-    ['copy_impact', '2. 0 隻 vs 1 隻（單職業）vs 2 隻（雙職業）平均排名影響'],
-    ['tier_heatmap', '3. 各名次區間職業出場率 ＆ 雙職業組隊結構'],
-    ['synergy_matrix', '4. 常見綁定搭檔 ＆ 二選一搶位矩陣'],
-  ];
-  document.getElementById('allShareCardsGrid').innerHTML = cardDefs
-    .filter(([k]) => CARDS[k])
-    .map(([k, lbl]) => `<div class="card" style="background:#0f172a;margin:0"><h3 style="margin:0 0 8px;font-size:0.96rem;color:var(--accent)">${{esc(lbl)}} <span class="sub" style="font-size:0.78rem">（點擊放大）</span></h3>${{mkZoomImg(CARDS[k], lbl)}}</div>`)
-    .join('');
-}}
 
-const fmtB = b => b && b.teams ? `<b>#${{b.avg_rank}}</b> <span class="sub">(${{b.teams}}隊${{b.low_sample?', n<5':''}})</span>` : '<span class="sub">-</span>';
+const fmtB = b => b && b.teams ? `<b>#${{b.avg_rank}}</b> <span class="sub">(${{b.teams}}隊${{b.low_sample?', 低樣本':''}})</span>` : '<span class="sub">-</span>';
 document.getElementById('copyTable').innerHTML =
   '<thead><tr><th>職業</th><th>帶 0 隻（不帶）</th><th>帶 1 隻（單職業）</th><th>帶 2 隻（雙職業）</th><th>雙職業名次提升 (1隻→2隻)</th></tr></thead><tbody>' +
   A.occupation_frequency.map(r => {{
     const g = r.double_rank_gain;
     const gHtml = g === null || g === undefined ? '-' : `<span class="${{g>=0?'pos':'neg'}}">${{g>=0?'+':''}}${{g}} 名</span>`;
-    return `<tr><td><span class="lbl-flex">${{ico(r.occupation)}}${{esc(r.occupation)}}</span></td><td>${{fmtB(r.copy_0)}}</td><td>${{fmtB(r.copy_1)}}</td><td>${{fmtB(r.copy_2)}}</td><td>${{gHtml}}</td></tr>`;
+    const rowStyle = r.low_sample ? ' style="opacity:0.68"' : '';
+    return `<tr${{rowStyle}}><td><span class="lbl-flex">${{ico(r.occupation)}}${{esc(r.occupation)}}</span></td><td>${{fmtB(r.copy_0)}}</td><td>${{fmtB(r.copy_1)}}</td><td>${{fmtB(r.copy_2)}}</td><td>${{gHtml}}</td></tr>`;
   }}).join('') + '</tbody>';
 
 const tiers = A.ranking_analysis.tiers;
@@ -500,9 +450,10 @@ document.getElementById('tierHeatTable').innerHTML =
     const firstV = r.tier_rates[firstTierKey] || 0;
     const lastV = r.tier_rates[lastTierKey] || 0;
     const diff = firstV - lastV;
-    const trendTxt = diff >= 0.08 ? `↑ 前段愛帶 (+${{pct(diff)}})` : diff <= -0.08 ? `↓ 後段較多 (${{pct(diff)}})` : `— 差不多 (${{diff>=0?'+':''}}${{pct(diff)}})`;
-    const trendCls = diff >= 0.08 ? 'pos' : diff <= -0.08 ? 'neg' : 'sub';
-    return `<tr><td><span class="lbl-flex">${{ico(r.occupation)}}${{esc(r.occupation)}}</span></td><td>${{pct(r.team_presence_rate)}}</td>${{tiers.map(t => {{
+    const trendTxt = r.low_sample ? '— 低樣本觀察' : diff >= 0.08 ? `↑ 前段愛帶 (+${{pct(diff)}})` : diff <= -0.08 ? `↓ 後段較多 (${{pct(diff)}})` : `— 差不多 (${{diff>=0?'+':''}}${{pct(diff)}})`;
+    const trendCls = r.low_sample ? 'sub' : diff >= 0.08 ? 'pos' : diff <= -0.08 ? 'neg' : 'sub';
+    const rowStyle = r.low_sample ? ' style="opacity:0.68"' : '';
+    return `<tr${{rowStyle}}><td><span class="lbl-flex">${{ico(r.occupation)}}${{esc(r.occupation)}}</span></td><td>${{pct(r.team_presence_rate)}}</td>${{tiers.map(t => {{
       const v = r.tier_rates[t.tier] || 0;
       const alpha = (0.08 + v * 0.65).toFixed(2);
       return `<td class="heat-cell" style="background:rgba(56,189,248,${{alpha}})">${{pct(v)}}</td>`;
@@ -512,22 +463,6 @@ document.getElementById('tierHeatTable').innerHTML =
 document.getElementById('dpStructTable').innerHTML =
   '<thead><tr><th>雙職業組數配置</th><th>隊伍數</th><th>佔比</th><th>平均排名</th><th>中位排名</th><th>最高排名</th><th>Top 10 隊數</th></tr></thead><tbody>' +
   A.double_pick_structure.map(d => `<tr><td><b>${{esc(d.label)}}</b></td><td>${{d.team_count}}</td><td>${{pct(d.team_rate)}}</td><td><b>#${{d.avg_rank}}</b></td><td>#${{d.median_rank}}</td><td>#${{d.best_rank}}</td><td>${{d.top10_count}}</td></tr>`).join('') + '</tbody>';
-
-document.getElementById('archTable').innerHTML =
-  '<thead><tr><th>流派</th><th>隊數(佔比)</th><th>均排 / 最高</th><th>平均雙職業組數</th><th>核心必帶職</th><th>常見搖擺位</th><th>代表戰隊</th></tr></thead><tbody>' +
-  (A.roster_archetypes || []).map(a => `<tr><td><b>${{esc(a.archetype_id)}}</b> ${{esc(a.archetype_name)}}</td><td>${{a.team_count}} (${{pct(a.team_rate)}})</td><td><b>#${{a.avg_rank}}</b> / #${{a.best_rank}}</td><td>${{a.avg_double_picks}}</td><td>${{esc(a.core_classes)}}</td><td class="sub">${{esc(a.flex_classes)}}</td><td class="sub">${{esc(a.sample_teams)}}</td></tr>`).join('') + '</tbody>';
-
-const fillSyn = (id, rows) => {{
-  document.getElementById(id).innerHTML =
-    '<thead><tr><th>雙職組合</th><th>搭檔倍率</th><th>實際同隊佔比(隊數)</th><th>隨機預期</th><th>平均排名</th><th>代表戰隊</th></tr></thead><tbody>' +
-    (rows.length ? rows.map(r => `<tr><td><b>${{esc(r.combination)}}</b></td><td class="${{r.synergy_lift>=1.15?'pos':'neg'}}">${{r.synergy_lift}}x</td><td>${{pct(r.team_rate)}} (${{r.team_count}}隊)</td><td>${{pct(r.expected_rate)}}</td><td>${{r.avg_rank ? '#'+r.avg_rank : '-'}}</td><td class="sub">${{esc(r.sample_teams)}}</td></tr>`).join('') : '<tr><td colspan="6" class="sub">無明顯項目</td></tr>') + '</tbody>';
-}};
-fillSyn('synTable', A.synergy_pairs || []);
-fillSyn('subTable', A.substitution_pairs || []);
-
-document.getElementById('tripleTable').innerHTML =
-  '<thead><tr><th>三職業組合</th><th>隊數</th><th>佔比</th><th>平均排名</th><th>Top 10 佔比</th><th>代表戰隊</th></tr></thead><tbody>' +
-  (A.triple_combinations || []).slice(0, 35).map(r => `<tr><td><b>${{esc(r.combination)}}</b></td><td>${{r.team_count}}</td><td>${{pct(r.team_rate)}}</td><td>#${{r.avg_rank}}</td><td>${{pct(r.top10_rate)}}</td><td class="sub">${{esc(r.sample_teams)}}</td></tr>`).join('') + '</tbody>';
 
 // Opponent Roster Feature & Tactical Reminder Card Generator
 function buildScoutCardHtml(team) {{
@@ -1014,166 +949,6 @@ renderRaw();
       reader.readAsDataURL(file);
     }};
   }}
-}})();
-
-// Tab 6: My 8-Player Roster Builder & Evaluator
-(function initRosterBuilder() {{
-  const allOccs = A.occupation_frequency.map(r => r.occupation);
-  const occStats = {{}};
-  A.occupation_frequency.forEach(r => occStats[r.occupation] = r);
-  const synMatrix = A.synergy_matrix || {{}};
-
-  const defaultRoster = ['補師', '法師', '詩人', '賢者', '德魯伊', '法師', '流氓', '武僧'];
-  const slotsBox = document.getElementById('builderSlots');
-
-  function renderSelects(roster) {{
-    slotsBox.innerHTML = roster.map((c, idx) => `
-      <div class="slot-box" style="${{idx < 5 ? 'border-color:rgba(56,189,248,.45)' : ''}}">
-        <div class="sub" style="font-size:0.76rem">${{idx < 5 ? '預設先發 #' + (idx + 1) : '預設替補 #' + (idx + 1)}}</div>
-        <div id="slotIco_${{idx}}" style="margin:6px 0">${{ico(c)}}</div>
-        <select class="builder-sel" data-idx="${{idx}}">
-          ${{allOccs.map(o => `<option value="${{esc(o)}}" ${{o === c ? 'selected' : ''}}>${{esc(o)}}</option>`).join('')}}
-        </select>
-      </div>
-    `).join('');
-    document.querySelectorAll('.builder-sel').forEach(sel => {{
-      sel.onchange = () => evaluateCurrentBuilder();
-    }});
-  }}
-
-  function scoreRoster(occs) {{
-    const counts = {{}};
-    occs.forEach(o => counts[o] = (counts[o] || 0) + 1);
-    const violations = Object.keys(counts).filter(o => counts[o] > 2);
-
-    // Compute expected rank contribution from each distinct occupation's copy_1 / copy_2 bucket
-    let rankSum = 0;
-    let weightSum = 0;
-    const notes = [];
-    Object.entries(counts).forEach(([o, cnt]) => {{
-      const st = occStats[o];
-      if (!st) return;
-      const bucket = cnt >= 2 ? st.copy_2 : st.copy_1;
-      const bRank = (bucket && bucket.teams >= 2 && bucket.avg_rank) ? bucket.avg_rank : st.avg_rank;
-      const w = cnt >= 2 ? 2.2 : 1.0;
-      rankSum += bRank * w;
-      weightSum += w;
-      if (cnt === 2 && st.double_rank_gain !== null && st.double_rank_gain >= 5) {{
-        notes.push({{ type: 'pos', text: `✅ 【${{o}}×2 雙職業配置】大數據雙職業均排 #${{bucket.avg_rank}}（比單職業提升 +${{st.double_rank_gain}} 名）` }});
-      }} else if (cnt === 2 && st.double_rank_gain !== null && st.double_rank_gain <= -5) {{
-        notes.push({{ type: 'neg', text: `⚠️ 【${{o}}×2 雙職業警告】大數據顯示帶 2 隻【${{o}}】均排掉至 #${{bucket.avg_rank}}（${{st.double_rank_gain}} 名），建議改為單職業騰出席次` }});
-      }} else if (cnt === 1 && o === '舞孃') {{
-        notes.push({{ type: 'neg', text: `⚠️ 【單帶舞孃陷阱】本場 100 隊單帶舞孃均排僅 #111.7（不帶均排 #89.0），除非與詩人雙綁定否則建議換為德魯伊/武僧/刺客` }});
-      }}
-    }});
-
-    const distinct = Object.keys(counts);
-    const goodSyns = [];
-    const subConflicts = [];
-    let synBonus = 0;
-    for (let i = 0; i < distinct.length; i++) {{
-      for (let j = i + 1; j < distinct.length; j++) {{
-        const a = distinct[i], b = distinct[j];
-        const lift = (synMatrix[a] && synMatrix[a][b]) ? synMatrix[a][b] : 1.0;
-        if (lift >= 1.15) {{
-          goodSyns.push(`${{a}}＋${{b}} (${{lift}}x)`);
-          synBonus += (lift - 1.0) * 6.5;
-        }} else if (lift <= 0.82) {{
-          subConflicts.push(`${{a}} vs ${{b}} (Lift ${{lift}}x)`);
-          synBonus -= (0.85 - lift) * 5.0;
-        }}
-      }}
-    }}
-
-    const baseExpectedRank = weightSum ? (rankSum / weightSum) : ov.overall_avg_rank;
-    const estRank = Math.max(1, Math.min(200, Math.round((baseExpectedRank - synBonus) * 10) / 10));
-    return {{ counts, violations, estRank, notes, goodSyns, subConflicts }};
-  }}
-
-  function evaluateCurrentBuilder() {{
-    const occs = [...document.querySelectorAll('.builder-sel')].map(s => s.value);
-    occs.forEach((c, idx) => {{
-      const box = document.getElementById('slotIco_' + idx);
-      if (box) box.innerHTML = ico(c);
-    }});
-
-    const res = scoreRoster(occs);
-    const dpCount = Object.values(res.counts).filter(v => v === 2).length;
-
-    // Find best 1-slot swap suggestion
-    let bestSwap = null;
-    let bestRankAfter = res.estRank;
-    for (let i = 0; i < 8; i++) {{
-      const cur = occs[i];
-      for (const cand of allOccs) {{
-        if (cand === cur) continue;
-        const trial = [...occs];
-        trial[i] = cand;
-        const tRes = scoreRoster(trial);
-        if (tRes.violations.length === 0 && tRes.estRank < bestRankAfter - 0.8) {{
-          bestRankAfter = tRes.estRank;
-          bestSwap = {{ slot: i + 1, from: cur, to: cand, newRank: tRes.estRank, gain: Math.round((res.estRank - tRes.estRank) * 10) / 10 }};
-        }}
-      }}
-    }}
-
-    // Find Top 5 most similar real leaderboard teams (multiset intersection)
-    const simTeams = A.raw_data.map(t => {{
-      const tCounts = {{}};
-      (t.occupations || []).forEach(o => tCounts[o] = (tCounts[o] || 0) + 1);
-      let overlap = 0;
-      Object.keys(res.counts).forEach(o => {{
-        overlap += Math.min(res.counts[o] || 0, tCounts[o] || 0);
-      }});
-      return {{ team: t, overlap }};
-    }}).sort((a, b) => (b.overlap - a.overlap) || (a.team.rank - b.team.rank)).slice(0, 5);
-
-    const grade = res.violations.length ? '❌ 違規（同職超過2名）' : res.estRank <= 78 ? '🏆 S+ 爭冠T0級' : res.estRank <= 90 ? '🔥 S 前段強勢級' : res.estRank <= 100 ? '⚖️ A 標準中堅級' : '⚠️ B 建議調整席次';
-
-    document.getElementById('builderResult').innerHTML = `
-      <div class="scout-box" style="margin-top:12px">
-        <div class="kpis" style="margin-bottom:12px">
-          <div class="kpi"><div class="lbl">賽制合規檢查</div><div class="val ${{res.violations.length?'neg':'pos'}}" style="font-size:1.1rem">${{res.violations.length ? '❌ ' + res.violations.join(',') + ' 超過2隻' : '✅ 符合同職 ≤ 2 規則'}}</div></div>
-          <div class="kpi"><div class="lbl">陣容戰力評級</div><div class="val" style="font-size:1.15rem">${{grade}}</div></div>
-          <div class="kpi"><div class="lbl">大數據預估強度落點</div><div class="val">#${{res.estRank}} <span class="sub" style="font-size:0.8rem">(全場均#100.5)</span></div></div>
-          <div class="kpi"><div class="lbl">雙職業結構</div><div class="val" style="font-size:1.1rem">${{dpCount}} 組雙職業 (${{8 - dpCount * 2}} 單職)</div></div>
-        </div>
-        <div style="line-height:1.7;font-size:0.9rem">
-          ${{res.notes.map(n => `<div class="${{n.type}}">${{n.text}}</div>`).join('')}}
-          <div>🔗 <b>觸發常見綁定搭檔 (${{res.goodSyns.length}} 組)</b>：${{res.goodSyns.length ? res.goodSyns.map(s => `<span class="pill">${{esc(s)}}</span>`).join(' ') : '<span class="sub">無明顯高倍率綁定組</span>'}}</div>
-          ${{res.subConflicts.length ? `<div style="margin-top:4px">⚡ <b>二選一搶位提醒</b>：${{res.subConflicts.map(s => `<span class="pill">${{esc(s)}}</span>`).join(' ')}}（通常強隊二選一即可）</div>` : ''}}
-          ${{bestSwap ? `<div style="margin-top:8px;padding:8px 12px;background:rgba(74,222,128,.12);border:1px solid var(--green);border-radius:8px">💡 <b>AI 單格換角最佳化建議</b>：若將 <b>席次 #${{bestSwap.slot}}【${{esc(bestSwap.from)}}】→ 換成【${{esc(bestSwap.to)}}】</b>，預估強度落點可從 <b>#${{res.estRank}} 提升至 #${{bestSwap.newRank}}（+${{bestSwap.gain}} 名）</b>！</div>` : '<div style="margin-top:8px;color:var(--green)">✨ <b>目前 8 人配置已達局部最佳解，無需單格換角！</b></div>'}}
-        </div>
-        <h3 style="margin:14px 0 8px;font-size:0.98rem">🏆 排行榜上與你最相似的 Top 5 實戰參考戰隊</h3>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>相似度</th><th>排名</th><th>戰隊名稱</th><th>積分</th><th>該隊 8 人名單</th></tr></thead>
-            <tbody>
-              ${{simTeams.map(({{team, overlap}}) => `<tr>
-                <td><span class="q-tag ${{overlap>=7?'q-t0':overlap>=6?'q-dark':'q-std'}}"><b>${{overlap}} / 8 相同</b></span></td>
-                <td><b>#${{team.rank}}</b></td>
-                <td>${{esc(team.team_name)}}</td>
-                <td>${{team.score ?? '-'}}</td>
-                <td>${{team.occupations.map(o => `<span class="pill">${{ico(o)}}<span>${{esc(o)}}</span></span>`).join('')}}</td>
-              </tr>`).join('')}}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    `;
-  }}
-
-  renderSelects(defaultRoster);
-  evaluateCurrentBuilder();
-
-  document.querySelectorAll('.preset-btn').forEach(btn => {{
-    if (!btn.dataset.preset) return;
-    btn.onclick = () => {{
-      const arr = btn.dataset.preset.split(',');
-      renderSelects(arr);
-      evaluateCurrentBuilder();
-    }};
-  }});
 }})();
 
 // Universal Click-to-Zoom & Pan Lightbox Controller

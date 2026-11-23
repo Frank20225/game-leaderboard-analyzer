@@ -46,7 +46,7 @@ def generate_share_cards(
     out_dir = Path(cards_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     # Remove stale legacy cards if any
-    for old_name in ("01_occupation_frequency.png", "02_ranking_tier_comparison.png", "03_top_combinations.png"):
+    for old_name in ("01_occupation_frequency.png", "02_ranking_tier_comparison.png", "03_top_combinations.png", "04_synergy_matrix.png"):
         old_p = out_dir / old_name
         if old_p.is_file():
             old_p.unlink()
@@ -60,6 +60,17 @@ def generate_share_cards(
     if not occ_list:
         return created
 
+    # Scheme A: Exclude <5% low-sample occupations from rank-axis charts so small samples don't distort Y/X axes
+    plot_occs = [r for r in occ_list if not r.get("low_sample")] or occ_list
+    excluded_occs = [r for r in occ_list if r.get("low_sample")]
+    excl_note = (
+        "（已排除 <5% 低樣本防座標失真："
+        + "、".join(f"{r['occupation']}({r['team_count']}隊)" for r in excluded_occs)
+        + "）"
+        if excluded_occs
+        else ""
+    )
+
     # ------------------------------------------------------------------
     # Card 1: Meta 4-Quadrant Strategic Map (Presence Rate vs Avg Rank)
     # ------------------------------------------------------------------
@@ -67,8 +78,8 @@ def generate_share_cards(
     ax.set_facecolor("#162033")
 
     avg_r = float(ov.get("overall_avg_rank", 15.5))
-    xs = [r["team_presence_rate"] * 100 for r in occ_list]
-    ys = [r["avg_rank"] for r in occ_list]
+    xs = [r["team_presence_rate"] * 100 for r in plot_occs]
+    ys = [r["avg_rank"] for r in plot_occs]
 
     y_min = max(1.0, min(ys) - max(3.0, (max(ys) - min(ys)) * 0.25))
     y_max = max(ys) + max(2.8, (max(ys) - min(ys)) * 0.24)
@@ -92,7 +103,7 @@ def generate_share_cards(
     # Smart non-overlapping label placement using candidate offsets (top/bottom/left/right)
     placed_boxes: list[tuple[float, float]] = []
     y_span = max(1.0, y_max - y_min)
-    for r in occ_list:
+    for r in plot_occs:
         x_val = r["team_presence_rate"] * 100
         y_val = r["avg_rank"]
 
@@ -127,19 +138,15 @@ def generate_share_cards(
         else:
             ax.scatter([x_val], [y_val], s=140, color="#38bdf8", zorder=5)
 
-        if r.get("low_sample"):
-            ax.scatter([x_val], [y_val], s=620, facecolors="none", edgecolors="#f59e0b", linewidths=1.5, linestyle="--", zorder=4)
-
         dp_txt = f" 雙職{r['double_pick_rate']*100:.0f}%" if r["double_pick_teams"] > 0 else ""
-        low_txt = " (n<5)" if r.get("low_sample") else ""
         ax.annotate(
-            f"{r['occupation']} #{y_val:.1f}{dp_txt}{low_txt}",
+            f"{r['occupation']} #{y_val:.1f}{dp_txt}",
             xy=(x_val, y_val),
             xytext=(best_dx, best_dy),
             textcoords="offset points",
             ha="center",
             va="center",
-            color="#f8fafc" if not r.get("low_sample") else "#fcd34d",
+            color="#f8fafc",
             fontsize=8.8,
             fontweight="bold",
             bbox=dict(boxstyle="round,pad=0.22", fc="#0f172a", ec="#334155", alpha=0.88),
@@ -161,7 +168,7 @@ def generate_share_cards(
     ax.grid(True, color="#334155", linestyle=":", alpha=0.55)
     for spine in ax.spines.values():
         spine.set_color("#334155")
-    ax.set_title(f"{title}｜Meta 四象限戰略圖\n{subtitle}（虛線橘圈＝低樣本 n<5）", color="#ffffff", fontsize=14, fontweight="bold", pad=14)
+    ax.set_title(f"{title}｜Meta 四象限戰略圖\n{subtitle}{excl_note}", color="#ffffff", fontsize=13.2, fontweight="bold", pad=14)
     fig.tight_layout()
     p1 = out_dir / "01_meta_quadrant.png"
     fig.savefig(str(p1), dpi=180, facecolor=fig.get_facecolor())
@@ -171,7 +178,7 @@ def generate_share_cards(
     # ------------------------------------------------------------------
     # Card 2: 0 vs 1 vs 2 Copies Marginal Rank Impact (Double-Pick ROI)
     # ------------------------------------------------------------------
-    top_dp = [r for r in occ_list if r["team_count"] >= 1][::-1]
+    top_dp = [r for r in plot_occs if r["team_count"] >= 1][::-1]
     fig, ax = plt.subplots(figsize=(12.0, max(6.8, len(top_dp) * 0.62)), facecolor="#0f172a")
     ax.set_facecolor("#162033")
 
@@ -244,7 +251,7 @@ def generate_share_cards(
         labelcolor="#f8fafc",
         fontsize=9.5,
     )
-    ax.set_title(f"{title}｜0 隻 vs 1 隻（單職業）vs 2 隻（雙職業）平均排名影響\n{subtitle}", color="#ffffff", fontsize=13.5, fontweight="bold", pad=34)
+    ax.set_title(f"{title}｜0 隻 vs 1 隻（單職業）vs 2 隻（雙職業）平均排名影響\n{subtitle}{excl_note}", color="#ffffff", fontsize=12.8, fontweight="bold", pad=34)
     fig.tight_layout()
     p2 = out_dir / "02_copy_count_impact.png"
     fig.savefig(str(p2), dpi=180, facecolor=fig.get_facecolor())
@@ -273,7 +280,12 @@ def generate_share_cards(
     ax1.set_xticks(np.arange(len(tiers)))
     ax1.set_xticklabels([f"{t} 名\n({tier_counts[t]}隊)" for t in tiers], color="#f8fafc", fontsize=10, fontweight="bold")
     ax1.set_yticks(np.arange(len(heat_occs)))
-    ax1.set_yticklabels([r["occupation"] for r in heat_occs], color="#f8fafc", fontsize=10.5, fontweight="bold")
+    ax1.set_yticklabels(
+        [f"{r['occupation']} (低樣本)" if r.get("low_sample") else r["occupation"] for r in heat_occs],
+        color="#f8fafc",
+        fontsize=10.5,
+        fontweight="bold",
+    )
     for i in range(len(heat_occs)):
         for j in range(len(tiers)):
             val = heat_mat[i, j]
@@ -313,38 +325,5 @@ def generate_share_cards(
     fig.savefig(str(p3), dpi=180, facecolor=fig.get_facecolor())
     plt.close(fig)
     created.append(str(p3))
-
-    # ------------------------------------------------------------------
-    # Card 4: Occupation Synergy & Substitution Matrix (Pairwise Lift)
-    # ------------------------------------------------------------------
-    syn = analytics.get("synergy_matrix", {})
-    labels = syn.get("labels", [])
-    vals = np.array(syn.get("values", []), dtype=np.float32)
-    if len(labels) >= 2 and vals.size > 0:
-        fig, ax = plt.subplots(figsize=(10.2, 8.8), facecolor="#0f172a")
-        ax.set_facecolor("#162033")
-        # Diverging colormap centered at 1.0: Blue (<1 substitution) <-> White (1.0 neutral) <-> Red (>1 synergy)
-        im = ax.imshow(vals, cmap="coolwarm", vmin=0.4, vmax=1.6)
-        ax.set_xticks(np.arange(len(labels)))
-        ax.set_yticks(np.arange(len(labels)))
-        ax.set_xticklabels(labels, rotation=40, ha="right", color="#f8fafc", fontsize=10, fontweight="bold")
-        ax.set_yticklabels(labels, color="#f8fafc", fontsize=10, fontweight="bold")
-        for i in range(len(labels)):
-            for j in range(len(labels)):
-                if i == j:
-                    ax.text(j, i, "—", ha="center", va="center", color="#64748b", fontsize=9)
-                else:
-                    v = vals[i, j]
-                    col = "#0f172a" if 0.65 <= v <= 1.35 else "#ffffff"
-                    ax.text(j, i, f"{v:.2f}", ha="center", va="center", color=col, fontsize=8.2, fontweight="bold" if (v >= 1.15 or v <= 0.80) else "normal")
-        cbar = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
-        cbar.set_label("搭檔倍率（紅 >1.15 常見綁定搭檔｜藍 <0.85 二選一搶位組合）", color="#f8fafc", fontsize=10)
-        cbar.ax.tick_params(colors="#cbd5e1")
-        ax.set_title(f"{title}｜常見綁定搭檔 ＆ 二選一搶位矩陣（搭檔倍率）\n{subtitle}", color="#ffffff", fontsize=13.5, fontweight="bold", pad=14)
-        fig.tight_layout()
-        p4 = out_dir / "04_synergy_matrix.png"
-        fig.savefig(str(p4), dpi=180, facecolor=fig.get_facecolor())
-        plt.close(fig)
-        created.append(str(p4))
 
     return created
