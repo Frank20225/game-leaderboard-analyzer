@@ -828,4 +828,60 @@ if ($("scoutFileInput")) {
   };
 }
 
+// Universal Click-to-Zoom & Pan Lightbox for all .preview charts in Local Web UI
+(function initLocalWebZoom() {
+  const modal = $("imgZoomModal");
+  const stage = $("zoomStage");
+  const img = $("zoomModalImg");
+  const titleEl = $("zoomModalTitle");
+  const pctEl = $("zoomPctLabel");
+  const dlBtn = $("btnZoomDownload");
+  if (!modal || !stage || !img) return;
+
+  let scale = 1, tx = 0, ty = 0, dragging = false, startX = 0, startY = 0;
+  function applyTransform() {
+    img.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
+    if (pctEl) pctEl.textContent = Math.round(scale * 100) + "%";
+  }
+  function openZoom(src, title) {
+    img.src = src;
+    if (titleEl) titleEl.textContent = title || "圖表放大檢視";
+    if (dlBtn) { dlBtn.href = src; dlBtn.download = (title || "chart") + ".png"; }
+    scale = 1; tx = 0; ty = 0; applyTransform();
+    modal.style.display = "flex";
+  }
+  function closeZoom() { modal.style.display = "none"; }
+
+  document.addEventListener("click", (ev) => {
+    const t = ev.target.closest("img.preview");
+    if (t && t.src) openZoom(t.src, t.alt || "統計圖卡");
+  });
+  $("btnZoomIn").onclick = () => { scale = Math.min(5, +(scale + 0.25).toFixed(2)); applyTransform(); };
+  $("btnZoomOut").onclick = () => { scale = Math.max(0.5, +(scale - 0.25).toFixed(2)); applyTransform(); };
+  $("btnZoomReset").onclick = () => { scale = 1; tx = 0; ty = 0; applyTransform(); };
+  $("btnZoomClose").onclick = closeZoom;
+  stage.addEventListener("wheel", (ev) => {
+    ev.preventDefault();
+    scale = Math.max(0.5, Math.min(5, +(scale + (ev.deltaY < 0 ? 0.2 : -0.2)).toFixed(2)));
+    applyTransform();
+  }, { passive: false });
+  stage.addEventListener("mousedown", (ev) => {
+    if (ev.button !== 0) return;
+    dragging = true; startX = ev.clientX - tx; startY = ev.clientY - ty;
+    stage.style.cursor = "grabbing";
+  });
+  window.addEventListener("mousemove", (ev) => {
+    if (!dragging) return;
+    tx = ev.clientX - startX; ty = ev.clientY - startY; applyTransform();
+  });
+  window.addEventListener("mouseup", () => { dragging = false; stage.style.cursor = "grab"; });
+  stage.addEventListener("dblclick", () => {
+    if (scale > 1.05) { scale = 1; tx = 0; ty = 0; } else { scale = 2.2; }
+    applyTransform();
+  });
+  window.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape" && modal.style.display === "flex") closeZoom();
+  });
+})();
+
 refreshRuns();

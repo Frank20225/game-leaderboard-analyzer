@@ -29,28 +29,28 @@ def generate_text_summary(analytics: dict[str, Any], output_path: str | Path | N
     ]
     dp_worthy.sort(key=lambda r: -r["double_rank_gain"])
     if dp_worthy:
-        lines.extend(["", "### ✌️ 雙開（帶 2 隻）名次效益排行（1隻 → 2隻）"])
+        lines.extend(["", "### ✌️ 雙職業（帶 2 隻）名次效益排行（1隻 → 2隻）"])
         for r in dp_worthy[:5]:
             g = r["double_rank_gain"]
             sign = "+" if g >= 0 else ""
             lines.append(
-                f"- **{r['occupation']}**：單帶均 #{r['copy_1']['avg_rank']} → 雙開均 **#{r['copy_2']['avg_rank']}**（{sign}{g} 名｜雙開 {r['copy_2']['teams']} 隊）"
+                f"- **{r['occupation']}**：單職業均 #{r['copy_1']['avg_rank']} → 雙職業均 **#{r['copy_2']['avg_rank']}**（{sign}{g} 名｜雙職業 {r['copy_2']['teams']} 隊）"
             )
 
     if analytics.get("double_pick_structure"):
-        lines.extend(["", "### 🧩 戰隊「雙開組數」結構"])
+        lines.extend(["", "### 🧩 戰隊「雙職業組數」結構"])
         for d in analytics["double_pick_structure"]:
             lines.append(f"- **{d['label']}**：{d['team_count']} 隊（{d['team_rate']*100:.1f}%｜均排 **#{d['avg_rank']}**｜Top10 佔 {d['top10_count']} 隊）")
 
     if analytics.get("synergy_pairs"):
-        lines.extend(["", "### 🔥 真正高協同搭檔（Synergy Lift ≥ 1.15）"])
+        lines.extend(["", "### 🔥 常見綁定搭檔（搭檔倍率 ≥ 1.15x）"])
         for r in analytics["synergy_pairs"][:5]:
-            lines.append(f"- **{r['combination']}**：協同 **{r['synergy_lift']}x**（{r['team_count']} 隊｜均排 #{r['avg_rank']}）")
+            lines.append(f"- **{r['combination']}**：搭檔倍率 **{r['synergy_lift']}x**（{r['team_count']} 隊｜均排 #{r['avg_rank']}）")
 
     if analytics.get("substitution_pairs"):
-        lines.extend(["", "### ⚔️ 同位互斥替代（Synergy Lift ≤ 0.85）"])
+        lines.extend(["", "### ⚔️ 二選一搶位組合（搭檔倍率 ≤ 0.85x）"])
         for r in analytics["substitution_pairs"][:5]:
-            lines.append(f"- **{r['combination']}**：協同 **{r['synergy_lift']}x**（同隊僅 {r['team_count']} 隊，預期 {r['expected_rate']*100:.0f}%）")
+            lines.append(f"- **{r['combination']}**：搭檔倍率 **{r['synergy_lift']}x**（同隊僅 {r['team_count']} 隊，隨機預期 {r['expected_rate']*100:.0f}%）")
 
     if analytics.get("roster_archetypes"):
         lines.extend(["", "### 📋 主流建隊流派骨架"])

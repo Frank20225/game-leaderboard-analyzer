@@ -249,6 +249,26 @@
     </section>
   </main>
 
+  <div id="imgZoomModal" style="position:fixed;inset:0;background:rgba(5,10,20,.92);z-index:9999;display:none;flex-direction:column;user-select:none">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 18px;background:#0f172a;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:10px">
+      <div>
+        <b id="zoomModalTitle" style="color:var(--accent)">圖表放大檢視</b>
+        <span class="muted" style="margin-left:10px">💡 滾輪：自由縮放 ｜ 按住滑鼠左鍵：拖曳平移 ｜ 雙擊圖片：切換 100% / 220%</span>
+      </div>
+      <div class="row">
+        <button class="btn secondary" id="btnZoomOut" style="padding:5px 10px">➖ 縮小</button>
+        <span id="zoomPctLabel" style="min-width:52px;text-align:center;font-weight:700">100%</span>
+        <button class="btn secondary" id="btnZoomIn" style="padding:5px 10px">➕ 放大</button>
+        <button class="btn secondary" id="btnZoomReset" style="padding:5px 10px">🔄 適應螢幕 (100%)</button>
+        <a class="btn" id="btnZoomDownload" download="chart.png" style="padding:5px 12px">💾 下載圖卡</a>
+        <button class="btn secondary" id="btnZoomClose" style="padding:5px 12px;border-color:var(--danger);color:#fecaca">✖ 關閉 (Esc)</button>
+      </div>
+    </div>
+    <div id="zoomStage" style="flex:1;overflow:hidden;position:relative;display:flex;align-items:center;justify-content:center;cursor:grab">
+      <img id="zoomModalImg" src="" alt="Zoomed Chart" style="max-width:94vw;max-height:86vh;transform-origin:center center;transition:transform .05s linear;pointer-events:none;border-radius:8px">
+    </div>
+  </div>
+
   <script src="/static/app.js"></script>
 </body>
 </html>

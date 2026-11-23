@@ -84,10 +84,10 @@ def generate_share_cards(
     ax.set_ylim(y_max, y_min)
 
     # Quadrant corner labels (pure JhengHei-safe glyphs, zero missing emoji warnings!)
-    ax.text(105, y_min + (y_max - y_min) * 0.03, "★ T0 版本核心\n(高攜帶率 × 高排名)", color="#38bdf8", ha="right", va="top", fontsize=11, fontweight="bold")
-    ax.text(-2, y_min + (y_max - y_min) * 0.03, "▲ 高端奇兵 / 黑馬\n(低攜帶率 × 高排名)", color="#4ade80", ha="left", va="top", fontsize=11, fontweight="bold")
-    ax.text(105, y_max - (y_max - y_min) * 0.03, "● 普及標配 / 均勢\n(高攜帶率 × 一般排名)", color="#fbbf24", ha="right", va="bottom", fontsize=10.5, fontweight="bold")
-    ax.text(-2, y_max - (y_max - y_min) * 0.03, "▼ 冷門職\n(低攜帶率 × 偏後排名)", color="#94a3b8", ha="left", va="bottom", fontsize=10.5, fontweight="bold")
+    ax.text(105, y_min + (y_max - y_min) * 0.03, "★ T0 版本核心\n(高出場率 × 高排名)", color="#38bdf8", ha="right", va="top", fontsize=11, fontweight="bold")
+    ax.text(-2, y_min + (y_max - y_min) * 0.03, "▲ 高端奇兵 / 黑馬\n(低出場率 × 高排名)", color="#4ade80", ha="left", va="top", fontsize=11, fontweight="bold")
+    ax.text(105, y_max - (y_max - y_min) * 0.03, "● 普及標配 / 均勢\n(高出場率 × 一般排名)", color="#fbbf24", ha="right", va="bottom", fontsize=10.5, fontweight="bold")
+    ax.text(-2, y_max - (y_max - y_min) * 0.03, "▼ 冷門職\n(低出場率 × 偏後排名)", color="#94a3b8", ha="left", va="bottom", fontsize=10.5, fontweight="bold")
 
     # Smart non-overlapping label placement using candidate offsets (top/bottom/left/right)
     placed_boxes: list[tuple[float, float]] = []
@@ -130,7 +130,7 @@ def generate_share_cards(
         if r.get("low_sample"):
             ax.scatter([x_val], [y_val], s=620, facecolors="none", edgecolors="#f59e0b", linewidths=1.5, linestyle="--", zorder=4)
 
-        dp_txt = f" 雙開{r['double_pick_rate']*100:.0f}%" if r["double_pick_teams"] > 0 else ""
+        dp_txt = f" 雙職{r['double_pick_rate']*100:.0f}%" if r["double_pick_teams"] > 0 else ""
         low_txt = " (n<5)" if r.get("low_sample") else ""
         ax.annotate(
             f"{r['occupation']} #{y_val:.1f}{dp_txt}{low_txt}",
@@ -146,7 +146,7 @@ def generate_share_cards(
             zorder=6,
         )
 
-    ax.set_xlabel("隊伍攜帶率 (%)", color="#e2e8f0", fontsize=11.5, fontweight="bold")
+    ax.set_xlabel("隊伍出場率 (%)", color="#e2e8f0", fontsize=11.5, fontweight="bold")
     ax.set_ylabel(
         "↑\n排\n名\n越\n高\n\n平\n均\n排\n名",
         color="#e2e8f0",
@@ -221,8 +221,8 @@ def generate_share_cards(
             ax.add_artist(ab_l)
 
     ax.scatter([], [], color="#94a3b8", marker="o", s=72, label="帶 0 隻（不帶）")
-    ax.scatter([], [], color="#38bdf8", marker="s", s=95, label="帶 1 隻（單帶）")
-    ax.scatter([], [], color="#f43f5e", marker="D", s=112, label="帶 2 隻（滿編雙開）")
+    ax.scatter([], [], color="#38bdf8", marker="s", s=95, label="帶 1 隻（單職業）")
+    ax.scatter([], [], color="#f43f5e", marker="D", s=112, label="帶 2 隻（雙職業）")
 
     ax.set_yticks(y_pos)
     ax.set_yticklabels([r["occupation"] for r in top_dp], color="#f8fafc", fontsize=11, fontweight="bold")
@@ -244,7 +244,7 @@ def generate_share_cards(
         labelcolor="#f8fafc",
         fontsize=9.5,
     )
-    ax.set_title(f"{title}｜0 隻 vs 1 隻 vs 2 隻（雙開）平均排名影響\n{subtitle}", color="#ffffff", fontsize=13.5, fontweight="bold", pad=34)
+    ax.set_title(f"{title}｜0 隻 vs 1 隻（單職業）vs 2 隻（雙職業）平均排名影響\n{subtitle}", color="#ffffff", fontsize=13.5, fontweight="bold", pad=34)
     fig.tight_layout()
     p2 = out_dir / "02_copy_count_impact.png"
     fig.savefig(str(p2), dpi=180, facecolor=fig.get_facecolor())
@@ -265,7 +265,7 @@ def generate_share_cards(
     fig, (ax1, ax2) = plt.subplots(
         1, 2, figsize=(13.0, max(6.0, len(heat_occs) * 0.45)), gridspec_kw={"width_ratios": [1.35, 1.0]}, facecolor="#0f172a"
     )
-    fig.suptitle(f"{title}｜各名次區間職業熱門度 ＆ 雙開組隊結構\n{subtitle}（左邊越高＝強隊越愛帶）", color="#ffffff", fontsize=14, fontweight="bold", y=0.97)
+    fig.suptitle(f"{title}｜各名次區間職業出場率 ＆ 雙職業組隊結構\n{subtitle}（左邊越高＝強隊越愛帶）", color="#ffffff", fontsize=14, fontweight="bold", y=0.97)
 
     # Left: Rank Bracket Popularity Table
     ax1.set_facecolor("#162033")
@@ -306,7 +306,7 @@ def generate_share_cards(
     ax2.grid(axis="x", color="#334155", linestyle=":", alpha=0.55)
     for spine in ax2.spines.values():
         spine.set_color("#334155")
-    ax2.set_title("戰隊「雙開組數」配置與平均排名", color="#e2e8f0", fontsize=11.5, fontweight="bold", pad=10)
+    ax2.set_title("戰隊「雙職業組數」配置與平均排名", color="#e2e8f0", fontsize=11.5, fontweight="bold", pad=10)
 
     fig.tight_layout(rect=[0, 0, 1, 0.91])
     p3 = out_dir / "03_tier_heatmap_and_doubles.png"
@@ -338,9 +338,9 @@ def generate_share_cards(
                     col = "#0f172a" if 0.65 <= v <= 1.35 else "#ffffff"
                     ax.text(j, i, f"{v:.2f}", ha="center", va="center", color=col, fontsize=8.2, fontweight="bold" if (v >= 1.15 or v <= 0.80) else "normal")
         cbar = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
-        cbar.set_label("協同指數 Lift（紅 >1.15 綁定搭檔｜藍 <0.85 同位互斥）", color="#f8fafc", fontsize=10)
+        cbar.set_label("搭檔倍率（紅 >1.15 常見綁定搭檔｜藍 <0.85 二選一搶位組合）", color="#f8fafc", fontsize=10)
         cbar.ax.tick_params(colors="#cbd5e1")
-        ax.set_title(f"{title}｜職業協同 ＆ 同位互斥矩陣（Synergy Lift）\n{subtitle}", color="#ffffff", fontsize=13.5, fontweight="bold", pad=14)
+        ax.set_title(f"{title}｜常見綁定搭檔 ＆ 二選一搶位矩陣（搭檔倍率）\n{subtitle}", color="#ffffff", fontsize=13.5, fontweight="bold", pad=14)
         fig.tight_layout()
         p4 = out_dir / "04_synergy_matrix.png"
         fig.savefig(str(p4), dpi=180, facecolor=fig.get_facecolor())

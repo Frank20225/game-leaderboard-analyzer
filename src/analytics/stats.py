@@ -354,7 +354,7 @@ def compute_leaderboard_analytics(
     for k in sorted(dp_groups.keys()):
         idxs = dp_groups[k]
         g_ranks = [ranks[i] for i in idxs]
-        label = "0 雙開（全 8 異職）" if k == 0 else f"{k} 組雙開（{8 - k} 種職業）"
+        label = "0 組雙職業（全 8 異職）" if k == 0 else f"{k} 組雙職業（{8 - k} 種職業）"
         double_pick_structure.append(
             {
                 "double_pick_count": k,

@@ -112,7 +112,7 @@ def classify_team_lineup_tags(occs: list[str]) -> tuple[str, list[str]]:
     if counts.get("詩人", 0) >= 2:
         matched.append("🎵 雙詩人雙流派輪轉體系 (詩人×2)")
     if dp_count == 0 and len(occs) >= 7:
-        matched.append("👑 8異職全能體系 (0雙開)")
+        matched.append("👑 8異職全能體系 (0組雙職業)")
     if counts.get("德魯伊", 0) >= 1:
         matched.append("🌿 德魯伊5v5團戰AOE體系")
     if counts.get("賢者", 0) >= 2 or counts.get("流氓", 0) >= 2:
@@ -139,7 +139,7 @@ def classify_team_lineup_tags(occs: list[str]) -> tuple[str, list[str]]:
     elif counts.get("舞孃", 0) == 1:
         primary = "💃 單舞配置陣"
     else:
-        primary = f"⚖️ {dp_count}雙開輪轉陣"
+        primary = f"⚖️ {dp_count}組雙職業輪轉陣"
 
     return primary, matched
 
@@ -147,7 +147,7 @@ def classify_team_lineup_tags(occs: list[str]) -> tuple[str, list[str]]:
 LINEUP_SYSTEM_CATALOG = [
     "🔥 雙法師跨局控場體系 (法師×2)",
     "🎵 雙詩人雙流派輪轉體系 (詩人×2)",
-    "👑 8異職全能體系 (0雙開)",
+    "👑 8異職全能體系 (0組雙職業)",
     "🌿 德魯伊5v5團戰AOE體系",
     "⚡ 雙賢者/雙流氓單挑分攤體系",
     "⚗️ 煉金護貝防拆裝體系",
@@ -542,7 +542,7 @@ def compare_multiple_runs(
             if rank_s[0] is not None and rank_s[-1] is not None
             else None
         )
-        lbl_k = "0 雙開（全 8 異職）" if k == 0 else f"{k} 組雙開"
+        lbl_k = "0 組雙職業（全 8 異職）" if k == 0 else f"{k} 組雙職業"
         double_pick_trends.append(
             {
                 "double_pick_count": k,

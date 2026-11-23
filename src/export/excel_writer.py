@@ -96,7 +96,7 @@ def write_excel_report(
     raw_headers = [
         "排名", "戰隊名稱", "積分",
         "職業1", "職業2", "職業3", "職業4", "職業5", "職業6", "職業7", "職業8",
-        "雙開組數", "合規(同職<=2)", "完整八職業陣容", "來源影格", "狀態", "標記",
+        "雙職業組數", "合規(同職<=2)", "完整八職業陣容", "來源影格", "狀態", "標記",
     ]
     raw_rows = [
         [
@@ -118,10 +118,10 @@ def write_excel_report(
     # 2. Occupation Frequency (includes 0/1/2 Copy Marginal Rank Impact & Meta Quadrant!)
     ws_occ = wb.create_sheet("Occupation Frequency")
     occ_headers = [
-        "職業名稱", "Meta 象限", "總人次", "總人次佔比", "攜帶隊數", "隊伍攜帶率",
-        "雙開隊數(×2)", "雙開率", "平均排名",
-        "0隻均排(隊數)", "1隻均排(隊數)", "2隻均排(隊數)", "雙開名次提升(1→2)",
-        "高排優勢比(Lift)", "Spearman r", "低樣本提醒",
+        "職業名稱", "Meta 象限", "總人次", "總席次佔比", "出場隊數", "隊伍出場率",
+        "雙職業隊數(×2)", "雙職業率", "平均排名",
+        "0隻均排(隊數)", "1隻均排(隊數)", "2隻均排(隊數)", "雙職業名次提升(1→2)",
+        "前段班偏好倍率", "名次相關性", "低樣本提醒",
     ]
     occ_rows = []
     for r in analytics["occupation_frequency"]:
@@ -152,25 +152,25 @@ def write_excel_report(
 
     # 3. Pair Combinations (Synergy Lift + Substitution Pairs + Same-Class Doubles)
     ws_pair = wb.create_sheet("Pair Combinations")
-    pair_headers = ["雙職業組合", "出現隊數", "實際佔比", "隨機預期佔比", "協同指數(Lift)", "平均排名", "最高排名", "Top 10 隊數", "代表戰隊"]
-    ws_pair.cell(row=1, column=1, value="【表一】強烈綁定搭檔（Synergy Lift ≥ 1.15，排除熱門職相乘的假協同）").font = _TITLE_FONT
+    pair_headers = ["雙職業組合", "出現隊數", "實際佔比", "隨機預期佔比", "搭檔倍率", "平均排名", "最高排名", "Top 10 隊數", "代表戰隊"]
+    ws_pair.cell(row=1, column=1, value="【表一】常見綁定搭檔（搭檔倍率 ≥ 1.15x，排除熱門職相乘的假協同）").font = _TITLE_FONT
     syn_rows = [
         [r["combination"], r["team_count"], r["team_rate"], r["expected_rate"], r["synergy_lift"], r["avg_rank"], r["best_rank"], r["top10_count"], r["sample_teams"]]
         for r in analytics.get("synergy_pairs", [])
     ]
-    r_cur = _style_table(ws_pair, pair_headers, syn_rows or [["(無明顯高協同搭檔)", 0, 0, 0, 1.0, 0, 0, 0, ""]], start_row=2, pct_cols={3, 4})
+    r_cur = _style_table(ws_pair, pair_headers, syn_rows or [["(無明顯高倍率綁定搭檔)", 0, 0, 0, 1.0, 0, 0, 0, ""]], start_row=2, pct_cols={3, 4})
 
     r_cur += 2
-    ws_pair.cell(row=r_cur, column=1, value="【表二】同定位互斥替代（Synergy Lift ≤ 0.85，帶 A 通常不帶 B）").font = _TITLE_FONT
+    ws_pair.cell(row=r_cur, column=1, value="【表二】二選一搶位組合（搭檔倍率 ≤ 0.85x，帶 A 通常較少帶 B）").font = _TITLE_FONT
     sub_rows = [
         [r["combination"], r["team_count"], r["team_rate"], r["expected_rate"], r["synergy_lift"], r["avg_rank"], r["best_rank"], r["top10_count"], r["sample_teams"]]
         for r in analytics.get("substitution_pairs", [])
     ]
-    r_cur = _style_table(ws_pair, pair_headers, sub_rows or [["(無明顯互斥職業)", 0, 0, 0, 1.0, 0, 0, 0, ""]], start_row=r_cur + 1, pct_cols={3, 4})
+    r_cur = _style_table(ws_pair, pair_headers, sub_rows or [["(無明顯二選一搶位組合)", 0, 0, 0, 1.0, 0, 0, 0, ""]], start_row=r_cur + 1, pct_cols={3, 4})
 
     r_cur += 2
-    ws_pair.cell(row=r_cur, column=1, value="【表三】同職業滿編雙開（×2）統計").font = _TITLE_FONT
-    dbl_headers = ["同職雙開", "隊數", "隊伍佔比", "平均排名", "最高排名", "Top 10 隊數", "Top 10 佔比", "代表戰隊"]
+    ws_pair.cell(row=r_cur, column=1, value="【表三】同職業雙職業配置（×2）統計").font = _TITLE_FONT
+    dbl_headers = ["同職雙職業", "隊數", "隊伍佔比", "平均排名", "最高排名", "Top 10 隊數", "Top 10 佔比", "代表戰隊"]
     dbl_rows = [
         [r["combination"], r["team_count"], r["team_rate"], r["avg_rank"], r["best_rank"], r["top10_count"], r["top10_rate"], r["sample_teams"]]
         for r in analytics.get("same_class_doubles", [])
@@ -232,9 +232,9 @@ def write_excel_report(
     ).font = _BODY_FONT
 
     tier_headers = [
-        "職業名稱", "Meta 象限", "整體攜帶率",
+        "職業名稱", "Meta 象限", "整體出場率",
         *[f"{t['tier']} ({t['team_count']}隊)" for t in tiers],
-        "高排優勢比(Lift)", "平均排名", "Spearman r", "p-value",
+        "前段班偏好倍率", "平均排名", "名次相關性", "p-value",
     ]
     tier_rows = [
         [
@@ -249,8 +249,8 @@ def write_excel_report(
 
     # Double-pick structure subtable
     r_k += 2
-    ws_rank.cell(row=r_k, column=1, value="【附表一】戰隊「雙開組數」策略分布（8 異職 vs 1/2/3 組雙開）").font = _TITLE_FONT
-    dp_headers = ["雙開配置", "隊伍數", "佔比", "平均排名", "中位排名", "最高排名", "Top 10 數"]
+    ws_rank.cell(row=r_k, column=1, value="【附表一】戰隊「雙職業組數」策略分布（8 異職 vs 1/2/3 組雙職業）").font = _TITLE_FONT
+    dp_headers = ["雙職業配置", "隊伍數", "佔比", "平均排名", "中位排名", "最高排名", "Top 10 數"]
     dp_rows = [
         [d["label"], d["team_count"], d["team_rate"], d["avg_rank"], d["median_rank"], d["best_rank"], d["top10_count"]]
         for d in analytics.get("double_pick_structure", [])

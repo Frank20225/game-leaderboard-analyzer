@@ -397,12 +397,35 @@ def generate_trend_summary(trend: dict[str, Any], output_path: str | Path | None
     return text
 
 
-def generate_trend_html(trend: dict[str, Any], output_path: str | Path) -> Path:
+def _encode_png_b64(path: str | Path) -> str:
+    p = Path(path)
+    if not p.is_file():
+        return ""
+    return f"data:image/png;base64,{base64.b64encode(p.read_bytes()).decode('ascii')}"
+
+
+def generate_trend_html(
+    trend: dict[str, Any],
+    output_path: str | Path,
+    cards_dir: str | Path | None = None,
+) -> Path:
     icons_b64 = _load_icon_db_b64()
+    embedded_cards: dict[str, str] = {}
+    if cards_dir is not None:
+        cdir = Path(cards_dir)
+        for key, fname in [
+            ("archetype_trend", "01_meta_trend_lines.png"),
+            ("class_momentum", "02_meta_movers_delta.png"),
+        ]:
+            fp = cdir / fname
+            if fp.is_file():
+                embedded_cards[key] = _encode_png_b64(fp)
+
     payload = {
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
         "trend": trend,
         "icons": icons_b64,
+        "cards": embedded_cards,
     }
     blob = json.dumps(payload, ensure_ascii=False).replace("</", "<\\/")
     safe_title = html.escape(trend.get("trend_title", "排位賽多期趨勢分析"))
@@ -446,6 +469,14 @@ def generate_trend_html(trend: dict[str, Any], output_path: str | Path) -> Path:
   .chip-btn.active {{ background:rgba(56,189,248,.2); color:#7dd3fc; border-color:var(--accent); }}
   input, select {{ background:#0b1120; color:var(--text); border:1px solid var(--border); border-radius:8px; padding:8px 12px; font-size:.9rem; }}
   .grid-2 {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(420px,1fr)); gap:14px; }}
+  .zoomable-img {{ cursor:zoom-in; transition:transform .15s,box-shadow .15s; border-radius:12px; border:1px solid var(--border); }}
+  .zoomable-img:hover {{ box-shadow:0 0 0 2px var(--accent); }}
+  .zoom-modal {{ position:fixed; inset:0; background:rgba(5,10,20,.92); z-index:9999; display:none; flex-direction:column; user-select:none; }}
+  .zoom-modal.open {{ display:flex; }}
+  .zoom-toolbar {{ display:flex; justify-content:space-between; align-items:center; padding:10px 18px; background:#0f172a; border-bottom:1px solid var(--border); flex-wrap:wrap; gap:10px; }}
+  .zoom-stage {{ flex:1; overflow:hidden; position:relative; display:flex; align-items:center; justify-content:center; cursor:grab; }}
+  .zoom-stage.dragging {{ cursor:grabbing; }}
+  .zoom-stage img {{ max-width:94vw; max-height:86vh; transform-origin:center center; transition:transform .05s linear; pointer-events:none; border-radius:8px; }}
 </style>
 </head>
 <body>
@@ -457,7 +488,7 @@ def generate_trend_html(trend: dict[str, Any], output_path: str | Path) -> Path:
   <nav class="tabs">
     <button class="tab active" data-tab="standings">🏆 1. 聯賽當下積分排行榜（以當下名次為主軸）</button>
     <button class="tab" data-tab="archetypes">⚔️ 2. 八大陣容體系強度趨勢（不靠換角看環境）</button>
-    <button class="tab" data-tab="classes">📊 3. 職業＆單雙開實戰強度動能</button>
+    <button class="tab" data-tab="classes">📊 3. 職業＆單雙職業實戰強度動能</button>
     <button class="tab" data-tab="climbers">🚀 4. 黑馬爬升榜 / 掉分榜 ＆ 副角色切換</button>
   </nav>
 
@@ -465,7 +496,7 @@ def generate_trend_html(trend: dict[str, Any], output_path: str | Path) -> Path:
     <div class="card">
       <h2>🏆 聯賽即時積分排行榜（依最新一期當下排名 #1 ～ #200 排序）</h2>
       <div class="sub" style="margin-bottom:10px">
-        💡 比照職業運動聯賽積分榜：以<b>當下最新排名</b>為基準，結合<b>本期名次升降 (▲/▼)</b>、<b>當下積分與本期淨勝分成長 (+Δ積分)</b>、<b>所屬陣容體系</b>與<b>成員副角色切換紀錄</b>。金色外框代表該隊滿編雙開（×2）核心職業。
+        💡 比照職業運動聯賽積分榜：以<b>當下最新排名</b>為基準，結合<b>本期名次升降 (▲/▼)</b>、<b>當下積分與本期淨勝分成長 (+Δ積分)</b>、<b>所屬陣容體系</b>與<b>成員副角色切換紀錄</b>。金色外框代表該隊雙職業（×2）核心配置。
       </div>
       <div class="filter-bar" id="standingsFilterBar">
         <button class="chip-btn active" data-f="all">🌐 全部當下排名</button>
@@ -486,25 +517,27 @@ def generate_trend_html(trend: dict[str, Any], output_path: str | Path) -> Path:
 
   <section id="tab-archetypes" class="panel">
     <div class="card">
-      <h2>⚔️ 八大陣容體系跨期強度趨勢（鎖定成員／每人限創 2 角賽制專用）</h2>
+      <h2>⚔️ 八大陣容體系跨期強度趨勢（鎖定成員／每人限創 2 角賽制專用）<span class="sub" style="font-size:.82rem">💡 點擊圖卡可放大與滾輪縮放</span></h2>
+      <div id="archCardWrap" style="margin-bottom:12px"></div>
       <div class="sub" style="background:#0f172a;border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:12px;line-height:1.65">
         💡 <b>為什麼要看「陣容體系強度趨勢」？</b><br>
-        由於比賽開始後<b>無法更換隊員、且每位隊員最多只能創建 2 隻角色</b>，全伺服器各職業的「總攜帶率 %」幾乎不會大幅變動。<br>
+        由於比賽開始後<b>無法更換隊員、且每位隊員最多只能創建 2 隻角色</b>，全伺服器各職業的「總出場率 %」幾乎不會大幅變動。<br>
         因此真正的 Meta 趨勢不在於「多少人換職業」，而在於隨賽程推進：<b>哪一套 8 人陣容體系的「平均排名正在集體往上爬」、「爬升隊伍比例（勝率動能）最高」、「擠進 Top 30 的席次變多」</b>！
       </div>
       <div class="table-wrap"><table id="sysTbl"></table></div>
     </div>
     <div class="card">
-      <h2>雙開組數策略（0 雙開 vs 1 / 2 / 3 組雙開）跨期平均排名演變</h2>
+      <h2>雙職業組數策略（0 組雙職業 vs 1 / 2 / 3 組雙職業）跨期平均排名演變</h2>
       <div class="table-wrap"><table id="dpTbl"></table></div>
     </div>
   </section>
 
   <section id="tab-classes" class="panel">
     <div class="card">
-      <h2>📊 14 職業＆「單帶 vs 雙開」跨期實戰強度動能表</h2>
+      <h2>📊 14 職業＆「單職業 vs 雙職業」跨期實戰強度動能表 <span class="sub" style="font-size:.82rem">💡 點擊圖卡可放大與滾輪縮放</span></h2>
+      <div id="classCardWrap" style="margin-bottom:12px"></div>
       <div class="sub" style="margin-bottom:10px">
-        💡 即使某職業的全場總攜帶率不變，只要<b>「持有該職業戰隊的均排爬升 (Δ均排 &gt; 0)」</b>、<b>「雙開(2隻)均排持續領跑」</b>或<b>「Top 30 高端佔有率上升」</b>，就代表該職業在實戰對局中正在幫隊伍贏下分數！
+        💡 即使某職業的全場總出場率不變，只要<b>「持有該職業戰隊的均排爬升 (Δ均排 &gt; 0)」</b>、<b>「雙職業(2隻)均排持續領跑」</b>或<b>「Top 30 高端佔有率上升」</b>，就代表該職業在實戰對局中正在幫隊伍贏下分數！
       </div>
       <div class="table-wrap"><table id="metaTbl"></table></div>
     </div>
@@ -527,6 +560,26 @@ def generate_trend_html(trend: dict[str, Any], output_path: str | Path) -> Path:
       <div class="table-wrap"><table id="changeTbl"></table></div>
     </div>
   </section>
+</div>
+
+<div class="zoom-modal" id="imgZoomModal">
+  <div class="zoom-toolbar">
+    <div>
+      <b id="zoomModalTitle" style="color:var(--accent)">圖表放大檢視</b>
+      <span class="sub" style="margin-left:10px">💡 滾輪：自由縮放 ｜ 按住滑鼠左鍵：拖曳平移 ｜ 雙擊圖片：切換 100% / 220%</span>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="chip-btn" id="btnZoomOut">➖ 縮小</button>
+      <span id="zoomPctLabel" style="min-width:52px;text-align:center;font-weight:700">100%</span>
+      <button class="chip-btn" id="btnZoomIn">➕ 放大</button>
+      <button class="chip-btn" id="btnZoomReset">🔄 適應螢幕 (100%)</button>
+      <a class="chip-btn" id="btnZoomDownload" download="trend_chart.png" style="text-decoration:none;color:var(--text)">💾 下載圖卡</a>
+      <button class="chip-btn" id="btnZoomClose" style="background:rgba(248,113,113,.2);border-color:var(--red);color:#fecaca">✖ 關閉 (Esc)</button>
+    </div>
+  </div>
+  <div class="zoom-stage" id="zoomStage">
+    <img id="zoomModalImg" src="" alt="Zoomed Chart">
+  </div>
 </div>
 <script>
 const D = {blob};
@@ -588,7 +641,7 @@ function renderStandings() {{
 
   document.getElementById('standingsCount').textContent = `顯示 ${{rows.length}} / ${{standings.length}} 隊`;
   document.getElementById('standingsTbl').innerHTML =
-    `<thead><tr><th>當下排名</th><th>本期升降</th><th>戰隊名稱</th><th>當下積分 (本期Δ)</th><th>所屬陣容體系</th>${{T.labels.slice(0,-1).map(l=>`<th>${{esc(l)}}</th>`).join('')}}<th>當下 8 人名單（金框＝雙開）</th><th>副角色切換</th></tr></thead><tbody>` +
+    `<thead><tr><th>當下排名</th><th>本期升降</th><th>戰隊名稱</th><th>當下積分 (本期Δ)</th><th>所屬陣容體系</th>${{T.labels.slice(0,-1).map(l=>`<th>${{esc(l)}}</th>`).join('')}}<th>當下 8 人名單（金框＝雙職業）</th><th>副角色切換</th></tr></thead><tbody>` +
     rows.map(t => {{
       const rc = t.recent_rank_change || 0;
       const rcCls = rc > 0 ? 'pos' : rc < 0 ? 'neg' : 'sub';
@@ -634,8 +687,16 @@ document.getElementById('sysTbl').innerHTML =
     </tr>`;
   }}).join('') + '</tbody>';
 
+const TCARDS = D.cards || {{}};
+if (TCARDS.archetype_trend && document.getElementById('archCardWrap')) {{
+  document.getElementById('archCardWrap').innerHTML = `<img class="zoomable-img" src="${{TCARDS.archetype_trend}}" alt="八大陣容體系跨期強度演變" data-zoom-title="八大陣容體系跨期強度演變" style="width:100%;max-width:1100px;display:block;margin:0 auto">`;
+}}
+if (TCARDS.class_momentum && document.getElementById('classCardWrap')) {{
+  document.getElementById('classCardWrap').innerHTML = `<img class="zoomable-img" src="${{TCARDS.class_momentum}}" alt="各職業實戰強度動能榜" data-zoom-title="各職業實戰強度動能榜" style="width:100%;max-width:1100px;display:block;margin:0 auto">`;
+}}
+
 document.getElementById('dpTbl').innerHTML =
-  `<thead><tr><th>雙開配置</th>${{T.labels.map(l=>`<th>${{esc(l)}} 佔比</th>`).join('')}}<th>佔比變化</th>${{T.labels.map(l=>`<th>${{esc(l)}} 均排</th>`).join('')}}<th>均排爬升(正=變強)</th></tr></thead><tbody>` +
+  `<thead><tr><th>雙職業配置</th>${{T.labels.map(l=>`<th>${{esc(l)}} 佔比</th>`).join('')}}<th>佔比變化</th>${{T.labels.map(l=>`<th>${{esc(l)}} 均排</th>`).join('')}}<th>均排爬升(正=變強)</th></tr></thead><tbody>` +
   T.double_pick_trends.map(d => {{
     const rg = d.avg_rank_gain;
     return `<tr><td><b>${{esc(d.label)}}</b></td>${{d.rate_series.map(v=>`<td>${{pct(v)}}</td>`).join('')}}<td class="${{d.rate_delta>0?'pos':d.rate_delta<0?'neg':''}}">${{d.rate_delta>=0?'+':''}}${{pct(d.rate_delta)}}</td>${{(d.avg_rank_series||[]).map(v=>`<td><b>${{v===null?'-':'#'+v}}</b></td>`).join('')}}<td class="${{(rg||0)>0?'pos':(rg||0)<0?'neg':''}}">${{rg===null||rg===undefined?'-':(rg>=0?'+':'')+rg+' 名'}}</td></tr>`;
@@ -643,7 +704,7 @@ document.getElementById('dpTbl').innerHTML =
 
 // Tab 3: Occupation & Copy-Count Performance Momentum
 document.getElementById('metaTbl').innerHTML =
-  `<thead><tr><th>職業</th><th>強度動能</th>${{T.labels.map(l=>`<th>${{esc(l)}} 均排</th>`).join('')}}<th>持有戰隊均排爬升</th><th>單帶(1隻)均排變化</th><th>雙開(2隻)均排變化</th><th>持有戰隊爬升率</th><th>平均Δ積分</th><th>Top30高端佔比變化</th><th>全場攜帶率(${{esc(T.labels[T.labels.length-1])}})</th></tr></thead><tbody>` +
+  `<thead><tr><th>職業</th><th>強度動能</th>${{T.labels.map(l=>`<th>${{esc(l)}} 均排</th>`).join('')}}<th>持有戰隊均排爬升</th><th>單職業(1隻)均排變化</th><th>雙職業(2隻)均排變化</th><th>持有戰隊爬升率</th><th>平均Δ積分</th><th>Top30高端出場率變化</th><th>全場出場率(${{esc(T.labels[T.labels.length-1])}})</th></tr></thead><tbody>` +
   T.occupation_trends.map(r => {{
     const g = r.avg_rank_gain || 0;
     const c1 = r.copy1_rank_gain;
@@ -681,6 +742,60 @@ renderMiniMoverTbl('fallersTbl', T.top_fallers || [], false);
 document.getElementById('changeTbl').innerHTML =
   '<thead><tr><th>戰隊</th><th>區間</th><th>切換副角色明細</th><th>排名變化</th><th>積分變化</th><th>切換後 8 人名單</th></tr></thead><tbody>' +
   (T.roster_changes.length ? T.roster_changes.map(c => `<tr><td><b>${{esc(c.team_name)}}</b></td><td>${{esc(c.from_period)}}→${{esc(c.to_period)}}</td><td><code>${{esc(c.diff_summary)}}</code></td><td class="${{c.rank_delta>0?'pos':c.rank_delta<0?'neg':''}}">#${{c.rank_before}} → #${{c.rank_after}} (${{c.rank_delta>=0?'+':''}}${{c.rank_delta}})</td><td>${{c.score_delta!==null&&c.score_delta!==undefined?(c.score_delta>=0?'+':'')+c.score_delta+'分':'-'}}</td><td class="sub">${{esc(c.roster_after)}}</td></tr>`).join('') : '<tr><td colspan="6" class="sub">本期無戰隊切換副角色（全數以固定陣容爬分）</td></tr>') + '</tbody>';
+
+// Universal Click-to-Zoom & Pan Lightbox Controller
+(function initZoomLightbox() {{
+  const modal = document.getElementById('imgZoomModal');
+  const stage = document.getElementById('zoomStage');
+  const img = document.getElementById('zoomModalImg');
+  const titleEl = document.getElementById('zoomModalTitle');
+  const pctEl = document.getElementById('zoomPctLabel');
+  const dlBtn = document.getElementById('btnZoomDownload');
+  if (!modal || !stage || !img) return;
+  let scale = 1, tx = 0, ty = 0, dragging = false, startX = 0, startY = 0;
+  function applyTransform() {{
+    img.style.transform = `translate(${{tx}}px, ${{ty}}px) scale(${{scale}})`;
+    if (pctEl) pctEl.textContent = Math.round(scale * 100) + '%';
+  }}
+  function openZoom(src, title) {{
+    img.src = src;
+    if (titleEl) titleEl.textContent = title || '統計圖卡放大檢視';
+    if (dlBtn) {{ dlBtn.href = src; dlBtn.download = (title || 'trend_chart') + '.png'; }}
+    scale = 1; tx = 0; ty = 0; applyTransform();
+    modal.classList.add('open');
+  }}
+  function closeZoom() {{ modal.classList.remove('open'); }}
+  document.addEventListener('click', ev => {{
+    const t = ev.target.closest('.zoomable-img');
+    if (t && t.src) openZoom(t.src, t.dataset.zoomTitle || t.alt);
+  }});
+  document.getElementById('btnZoomIn').onclick = () => {{ scale = Math.min(5, +(scale + 0.25).toFixed(2)); applyTransform(); }};
+  document.getElementById('btnZoomOut').onclick = () => {{ scale = Math.max(0.5, +(scale - 0.25).toFixed(2)); applyTransform(); }};
+  document.getElementById('btnZoomReset').onclick = () => {{ scale = 1; tx = 0; ty = 0; applyTransform(); }};
+  document.getElementById('btnZoomClose').onclick = closeZoom;
+  stage.addEventListener('wheel', ev => {{
+    ev.preventDefault();
+    scale = Math.max(0.5, Math.min(5, +(scale + (ev.deltaY < 0 ? 0.2 : -0.2)).toFixed(2)));
+    applyTransform();
+  }}, {{ passive: false }});
+  stage.addEventListener('mousedown', ev => {{
+    if (ev.button !== 0) return;
+    dragging = true; startX = ev.clientX - tx; startY = ev.clientY - ty;
+    stage.classList.add('dragging');
+  }});
+  window.addEventListener('mousemove', ev => {{
+    if (!dragging) return;
+    tx = ev.clientX - startX; ty = ev.clientY - startY; applyTransform();
+  }});
+  window.addEventListener('mouseup', () => {{ dragging = false; stage.classList.remove('dragging'); }});
+  stage.addEventListener('dblclick', () => {{
+    if (scale > 1.05) {{ scale = 1; tx = 0; ty = 0; }} else {{ scale = 2.2; }}
+    applyTransform();
+  }});
+  window.addEventListener('keydown', ev => {{
+    if (ev.key === 'Escape' && modal.classList.contains('open')) closeZoom();
+  }});
+}})();
 </script>
 </body>
 </html>
@@ -698,8 +813,8 @@ def export_trend_package(trend: dict[str, Any], out_dir: str | Path) -> dict[str
         json.dumps(trend, ensure_ascii=False, indent=2), encoding="utf-8"
     )
     excel_p = write_trend_excel(trend, target / "trend_report.xlsx")
-    html_p = generate_trend_html(trend, target / "trend_report.html")
     cards = generate_trend_cards(trend, target / "cards")
+    html_p = generate_trend_html(trend, target / "trend_report.html", cards_dir=target / "cards")
     summary_p = target / "summary.md"
     summary_txt = generate_trend_summary(trend, summary_p)
     manifest = {
