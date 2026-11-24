@@ -2,8 +2,8 @@
 
 Supports both:
 - Single-period tournament environment reports (`publish_to_github_pages`)
-- Multi-period League Standings & Lineup Strength trend reports (`publish_trend_to_github_pages`)
-Automatically deduplicates by report title so re-publishing updates in place.
+- Multi-period League Standings & Occupation Momentum trend reports (`publish_trend_to_github_pages`)
+Automatically ensures leading MMDD date prefix by default and deduplicates by report title.
 """
 
 from __future__ import annotations
@@ -17,6 +17,16 @@ from pathlib import Path
 from typing import Any
 
 from src.config import DOCS_DIR
+
+
+def _ensure_leading_date(title: str) -> str:
+    """Ensure report title starts with a date prefix (e.g. MMDD or YYYY-MM-DD)."""
+    clean = (title or "").strip()
+    if not clean:
+        return datetime.now().strftime("%m%d") + "女武神戰報"
+    if re.match(r"^(?:20\d{2}[-_/]?\d{2}[-_/]?\d{2}|\d{4})", clean):
+        return clean
+    return f"{datetime.now().strftime('%m%d')}{clean}"
 
 
 def _slugify(text: str) -> str:
@@ -46,7 +56,7 @@ def _resolve_dedup_slug_and_clean(
     elif existing_same_title_dirs:
         slug = existing_same_title_dirs[0].name
     else:
-        slug = _slugify(title[:32])
+        slug = _slugify(title[:36])
 
     dest = reports_root / slug
     dest.mkdir(parents=True, exist_ok=True)
@@ -127,12 +137,12 @@ def rebuild_docs_index(target_docs: Path = DOCS_DIR) -> Path:
     for m in all_metas:
         is_trend = m.get("report_type") == "trend"
         badge = (
-            '<span class="badge trend">📈 跨期聯賽積分榜＆強度趨勢</span>'
+            '<span class="badge trend">📈 跨期聯賽積分榜＆職業趨勢</span>'
             if is_trend
             else '<span class="badge single">📊 單期環境＆教練備戰報告</span>'
         )
         sub_line = (
-            f"對比期數：{html.escape(str(m.get('periods', '-')))} ｜ 最佳上分體系：{html.escape(str(m.get('top_occupation', '-')))}"
+            f"對比期數：{html.escape(str(m.get('periods', '-')))} ｜ 強勢上分職業：{html.escape(str(m.get('top_occupation', '-')))}"
             if is_trend
             else f"辨識職業：{m.get('distinct_occupations', 14)} 種 ｜ 熱門第一：{html.escape(str(m.get('top_occupation', '-')))}"
         )
@@ -205,7 +215,7 @@ def publish_to_github_pages(
     reports_root.mkdir(parents=True, exist_ok=True)
     (target_docs / ".nojekyll").touch(exist_ok=True)
 
-    title = analytics.get("report_title", "排位賽職業環境分析報告")
+    title = _ensure_leading_date(analytics.get("report_title", "女武神職業環境分析報告"))
     dest = _resolve_dedup_slug_and_clean(reports_root, title, report_slug)
     slug = dest.name
 
@@ -256,7 +266,7 @@ def publish_trend_to_github_pages(
     reports_root.mkdir(parents=True, exist_ok=True)
     (target_docs / ".nojekyll").touch(exist_ok=True)
 
-    title = trend.get("trend_title", "女武神聯賽跨期積分榜與陣容強度趨勢")
+    title = _ensure_leading_date(trend.get("trend_title", "女武神聯賽跨期積分榜與趨勢"))
     dest = _resolve_dedup_slug_and_clean(reports_root, title, report_slug)
     slug = dest.name
 
@@ -274,7 +284,16 @@ def publish_trend_to_github_pages(
         shutil.copy2(src_dir / "summary.md", dest / "summary.md")
 
     sc = trend.get("summary_counts", {})
-    best_sys = (trend.get("roster_strength_trends") or [{}])[0].get("system_name", "-")
+    occ_trends = trend.get("occupation_trends") or []
+    reg_occs = [r for r in occ_trends if not r.get("low_sample")]
+    best_occ = reg_occs[0] if reg_occs else (occ_trends[0] if occ_trends else None)
+    if best_occ:
+        g = best_occ.get("avg_rank_gain")
+        g_txt = f" ({g:+.1f}名)" if g is not None else ""
+        top_occ_lbl = f"{best_occ['occupation']}{g_txt}"
+    else:
+        top_occ_lbl = "-"
+
     meta = {
         "report_type": "trend",
         "slug": slug,
@@ -283,8 +302,8 @@ def publish_trend_to_github_pages(
         "total_teams": sc.get("active_league_teams") or sc.get("tracked_teams", 200),
         "rank_range": f"跨 {sc.get('snapshot_count', 2)} 期聯賽追蹤",
         "periods": " → ".join(trend.get("labels", [])),
-        "distinct_occupations": 14,
-        "top_occupation": best_sys,
+        "distinct_occupations": len(occ_trends) or 14,
+        "top_occupation": top_occ_lbl,
     }
     (dest / "meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
 

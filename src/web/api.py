@@ -30,7 +30,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from src.analytics.trends import compare_multiple_runs
+from src.analytics.trends import compare_multiple_runs, default_trend_title
 from src.config import DOCS_DIR, ICON_DB_DIR, OUTPUTS_DIR, ensure_base_dirs
 from src.export.pages_publisher import publish_to_github_pages, publish_trend_to_github_pages, rebuild_docs_index
 from src.export.trend_export import export_trend_package
@@ -191,7 +191,7 @@ class TrendSnapshotInput(BaseModel):
 
 
 class TrendCompareRequest(BaseModel):
-    trend_title: str = "排位賽多期環境與戰隊趨勢對比"
+    trend_title: str = ""
     snapshots: list[TrendSnapshotInput]
 
 
@@ -748,7 +748,7 @@ def run_trend_comparison(req: TrendCompareRequest) -> dict[str, Any]:
             }
         )
 
-    trend = compare_multiple_runs(loaded_snaps, trend_title=req.trend_title)
+    trend = compare_multiple_runs(loaded_snaps, trend_title=req.trend_title or default_trend_title())
     trend_id = f"trend_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     manifest = export_trend_package(trend, TRENDS_DIR / trend_id)
     return {"manifest": manifest, "trend": trend}

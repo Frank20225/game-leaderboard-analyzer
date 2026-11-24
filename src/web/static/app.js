@@ -14,8 +14,18 @@ function getDefaultReportTitle() {
   return `${mm}${dd}女武神職業環境分析報告`;
 }
 
+function getDefaultTrendTitle() {
+  const now = new Date();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  return `${mm}${dd}女武神聯賽跨期積分榜與趨勢`;
+}
+
 if ($("reportTitleInput") && !$("reportTitleInput").value) {
   $("reportTitleInput").value = getDefaultReportTitle();
+}
+if ($("trendTitleInput") && !$("trendTitleInput").value) {
+  $("trendTitleInput").value = getDefaultTrendTitle();
 }
 
 function showNotice(msg, kind = "") {
@@ -433,7 +443,6 @@ function renderExportPanel(exp) {
     "01_meta_quadrant.png",
     "02_copy_count_impact.png",
     "03_tier_heatmap_and_doubles.png",
-    "04_synergy_matrix.png",
   ];
   $("shareCardsPreview").innerHTML = cards
     .map((c) => `<div><img class="preview" src="${fileUrl("share/cards/" + c)}" alt="${c}"></div>`)
@@ -703,6 +712,7 @@ $("btnPublishPages").onclick = async () => {
     box.innerHTML =
       `✅ 已發佈至 <code>docs/reports/${res.slug}/index.html</code> 並更新 <code>docs/index.html</code>！<br>` +
       `${res.git_message || "可透過 GitHub Pages 公開分享連結。"}`;
+    await refreshPublishedPagesList();
   } catch (e) {
     showNotice("發佈至 docs/ 失敗：" + e.message, "err");
   }
@@ -721,7 +731,7 @@ $("btnRunTrend").onclick = async () => {
     const res = await api("/api/trends/compare", {
       method: "POST",
       body: JSON.stringify({
-        trend_title: $("trendTitleInput").value.trim() || "排位賽多期環境與戰隊趨勢對比",
+        trend_title: $("trendTitleInput").value.trim() || getDefaultTrendTitle(),
         snapshots: snaps,
       }),
     });
@@ -737,14 +747,14 @@ $("btnRunTrend").onclick = async () => {
     $("trendCardsPreview").innerHTML = ["01_meta_trend_lines.png", "02_meta_movers_delta.png"]
       .map((c) => `<div><img class="preview" src="/api/trends/${encodeURIComponent(tid)}/files/cards/${c}?t=${Date.now()}" alt="${c}"></div>`)
       .join("");
-    const sys = t.roster_strength_trends || [];
+    const occs = t.occupation_trends || [];
     if ($("trendSystemsTable")) {
       $("trendSystemsTable").innerHTML =
-        "<thead><tr><th>陣容體系</th><th>強度判定</th><th>當下隊數</th><th>前期→當下均排</th><th>均排爬升</th><th>爬升隊伍比例</th><th>Top30席次變化</th><th>當下代表強隊</th></tr></thead><tbody>" +
-        sys
+        "<thead><tr><th>職業</th><th>強度動能</th><th>前期→當下均排</th><th>均排爬升</th><th>爬升比例</th><th>Top30佔比變化</th><th>最新隊數</th></tr></thead><tbody>" +
+        occs
           .map(
-            (s) =>
-              `<tr><td><b>${s.system_name}</b></td><td><span class="badge ${s.avg_rank_gain >= 2 ? "ok" : s.avg_rank_gain <= -2 ? "flagged" : "edited"}">${s.verdict}</span></td><td>${s.latest_team_count}隊</td><td>#${s.first_avg_rank} → <b>#${s.latest_avg_rank}</b></td><td><b>${s.avg_rank_gain >= 0 ? "+" : ""}${s.avg_rank_gain} 名</b></td><td><b>${Math.round(s.climber_rate * 100)}%</b> (${s.climber_count}隊升)</td><td>${s.top30_series[0]} → ${s.top30_series[s.top30_series.length - 1]} (${s.top30_delta >= 0 ? "+" : ""}${s.top30_delta})</td><td class="muted">${s.sample_teams}</td></tr>`
+            (r) =>
+              `<tr style="${r.low_sample ? "opacity:.68" : ""}"><td><b>${r.occupation}</b></td><td><span class="badge ${r.low_sample ? "edited" : (r.avg_rank_gain || 0) >= 2.5 ? "ok" : (r.avg_rank_gain || 0) <= -2.5 ? "flagged" : "edited"}">${r.trend_tag}</span></td><td>${r.first_avg_rank ? "#" + r.first_avg_rank : "-"} → <b>${r.latest_avg_rank ? "#" + r.latest_avg_rank : "-"}</b></td><td><b>${r.avg_rank_gain !== null && r.avg_rank_gain !== undefined ? (r.avg_rank_gain >= 0 ? "+" : "") + r.avg_rank_gain + " 名" : "-"}</b></td><td><b>${Math.round((r.climber_rate || 0) * 100)}%</b> (${r.climber_count}升/${r.faller_count}降)</td><td>${(r.first_top30_presence * 100).toFixed(1)}% → ${(r.latest_top30_presence * 100).toFixed(1)}%</td><td>${r.team_count_series[r.team_count_series.length - 1]} 隊</td></tr>`
           )
           .join("") +
         "</tbody>";
@@ -752,11 +762,11 @@ $("btnRunTrend").onclick = async () => {
     const st = (t.league_standings || []).slice(0, 50);
     if ($("trendStandingsTable")) {
       $("trendStandingsTable").innerHTML =
-        "<thead><tr><th>當下排名</th><th>本期升降</th><th>戰隊名稱</th><th>當下積分 (本期Δ)</th><th>前期排名</th><th>陣容體系</th><th>當下 8 人名單</th><th>副角色切換</th></tr></thead><tbody>" +
+        "<thead><tr><th>當下排名</th><th>本期升降</th><th>戰隊名稱</th><th>當下積分 (本期Δ)</th><th>前期排名</th><th>當下 8 人名單</th><th>副角色切換</th></tr></thead><tbody>" +
         st
           .map(
             (r) =>
-              `<tr><td><b>#${r.latest_rank}</b></td><td><span class="badge ${r.recent_rank_change > 0 ? "ok" : r.recent_rank_change < 0 ? "flagged" : "edited"}">${r.status}</span></td><td><b>${r.team_name}</b></td><td><b>${r.latest_score ?? "-"}</b> ${r.recent_score_delta !== null && r.recent_score_delta !== undefined ? `(${r.recent_score_delta >= 0 ? "+" : ""}${r.recent_score_delta})` : ""}</td><td class="muted">${r.prev_rank ? "#" + r.prev_rank : "-"}</td><td>${r.archetype_tag}</td><td class="muted">${r.latest_roster}</td><td class="muted">${r.roster_change_notes}</td></tr>`
+              `<tr><td><b>#${r.latest_rank}</b></td><td><span class="badge ${r.recent_rank_change > 0 ? "ok" : r.recent_rank_change < 0 ? "flagged" : "edited"}">${r.status}</span></td><td><b>${r.team_name}</b></td><td><b>${r.latest_score ?? "-"}</b> ${r.recent_score_delta !== null && r.recent_score_delta !== undefined ? `(${r.recent_score_delta >= 0 ? "+" : ""}${r.recent_score_delta})` : ""}</td><td class="muted">${r.prev_rank ? "#" + r.prev_rank : "-"}</td><td class="muted">${r.latest_roster}</td><td class="muted">${r.roster_change_notes}</td></tr>`
           )
           .join("") +
         "</tbody>";
@@ -807,6 +817,7 @@ if ($("btnPublishTrendPages")) {
           `✅ 跨期聯賽積分榜與趨勢報告已發佈至 <code>docs/reports/${res.slug}/index.html</code> 並更新首頁 <code>docs/index.html</code>！<br>` +
           `${res.git_message || "可透過 GitHub Pages 公開分享。"}`;
       }
+      await refreshPublishedPagesList();
     } catch (e) {
       showNotice("發佈跨期趨勢至 docs/ 失敗：" + e.message, "err");
     }
