@@ -112,22 +112,23 @@ def generate_html_report(
     --muted: #94a3b8; --accent: #38bdf8; --accent2: #f59e0b; --green: #4ade80; --red: #f87171; --border: #273552;
   }}
   * {{ box-sizing: border-box; }}
-  body {{ margin: 0; font-family: "Microsoft JhengHei", "Segoe UI", system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; }}
+  html, body {{ overflow-x: hidden; }}
+  body {{ margin: 0; font-family: "Microsoft JhengHei", "Segoe UI", system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; -webkit-text-size-adjust: 100%; }}
   .wrap {{ max-width: 1240px; margin: 0 auto; padding: 24px 16px 60px; }}
   header {{ display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 12px; border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 20px; }}
-  h1 {{ margin: 0; font-size: 1.6rem; }}
+  h1 {{ margin: 0; font-size: 1.6rem; line-height: 1.3; }}
   .sub {{ color: var(--muted); font-size: 0.9rem; margin-top: 4px; }}
   .kpis {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(185px, 1fr)); gap: 12px; margin-bottom: 20px; }}
-  .kpi {{ background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }}
+  .kpi {{ background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; min-width: 0; }}
   .kpi .lbl {{ color: var(--muted); font-size: 0.82rem; }}
-  .kpi .val {{ font-size: 1.35rem; font-weight: 700; margin-top: 4px; color: var(--accent); }}
+  .kpi .val {{ font-size: 1.25rem; font-weight: 700; margin-top: 4px; color: var(--accent); word-break: break-word; }}
   .tabs {{ display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }}
   .tab {{ background: var(--card); color: var(--muted); border: 1px solid var(--border); padding: 9px 15px; border-radius: 999px; cursor: pointer; font-weight: 600; font-size: 0.9rem; }}
   .tab.active {{ background: var(--accent); color: #0b1120; border-color: var(--accent); }}
   .panel {{ display: none; }}
   .panel.active {{ display: block; }}
   .card {{ background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 18px; margin-bottom: 18px; }}
-  .card h2 {{ margin: 0 0 10px; font-size: 1.12rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }}
+  .card h2 {{ margin: 0 0 10px; font-size: 1.12rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; line-height: 1.35; }}
   .ico {{ width: 26px; height: 26px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 1px solid rgba(255,255,255,.15); }}
   .lbl-flex {{ display: inline-flex; align-items: center; gap: 7px; font-weight: 600; }}
   table {{ width: 100%; border-collapse: collapse; font-size: 0.87rem; }}
@@ -135,7 +136,13 @@ def generate_html_report(
   th {{ background: #0f172a; color: #cbd5e1; position: sticky; top: 0; z-index: 2; }}
   tr.team-row {{ cursor: pointer; transition: background 0.12s; }}
   tr.team-row:hover td {{ background: rgba(56,189,248,.09); }}
-  .table-wrap {{ overflow-x: auto; max-height: 680px; }}
+  .table-wrap {{ overflow-x: auto; max-height: 680px; -webkit-overflow-scrolling: touch; }}
+  .mobile-swipe-hint {{ display: none; font-size: 0.78rem; color: var(--accent); margin: 4px 0 6px; text-align: right; }}
+  .search-inp {{ flex: 1 1 280px; min-width: 0; }}
+  .ocr-details > summary {{ list-style: none; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 8px; font-weight: 700; }}
+  .ocr-details > summary::-webkit-details-marker {{ display: none; }}
+  .ocr-summary-tag {{ font-size: 0.78rem; color: var(--accent); font-weight: 600; white-space: nowrap; }}
+  .desktop-only-hint {{ display: inline; }}
   .pill {{ display: inline-flex; align-items: center; gap: 4px; background: var(--card2); padding: 3px 8px; border-radius: 999px; font-size: 0.8rem; margin: 2px; }}
   .pill.dp {{ border: 1px solid rgba(245,158,11,.55); background: rgba(245,158,11,.14); }}
   .q-tag {{ padding: 2px 8px; border-radius: 999px; font-size: 0.78rem; font-weight: 700; display: inline-block; }}
@@ -154,8 +161,8 @@ def generate_html_report(
   svg.quad {{ width: 100%; max-width: 960px; height: auto; display: block; margin: 0 auto; background: #0f172a; border-radius: 12px; border: 1px solid var(--border); }}
   .heat-cell {{ text-align: center; font-weight: 700; border-radius: 4px; }}
   .scout-box {{ background: #0f172a; border: 1px solid var(--accent); border-radius: 12px; padding: 14px 16px; margin: 4px 0; }}
-  .scout-cols {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap: 12px; margin-top: 10px; }}
-  .scout-col {{ background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 11px 13px; font-size: 0.86rem; line-height: 1.68; }}
+  .scout-cols {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 12px; margin-top: 10px; }}
+  .scout-col {{ background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 11px 13px; font-size: 0.86rem; line-height: 1.68; min-width: 0; }}
   .scout-col.threat {{ border-left: 3px solid var(--accent2); }}
   .scout-col.gap {{ border-left: 3px solid var(--green); }}
   .scout-col h4 {{ margin: 0 0 6px; font-size: 0.9rem; }}
@@ -163,31 +170,31 @@ def generate_html_report(
   .my-team-custom {{ margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); display: none; }}
   .my-team-custom.open {{ display: block; }}
   .custom-slots {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(125px, 1fr)); gap: 8px; margin: 8px 0; }}
-  .custom-slots select {{ padding: 6px 8px; font-size: 0.84rem; }}
+  .custom-slots select {{ padding: 6px 8px; font-size: 0.84rem; width: 100%; }}
   tr.team-row.is-my-team td {{ background: rgba(74, 222, 128, 0.11); }}
   .h2h-box {{ background: linear-gradient(135deg, rgba(56,189,248,.11), rgba(74,222,128,.08)); border: 1px solid rgba(56,189,248,.55); border-radius: 10px; padding: 11px 14px; margin: 10px 0 8px; }}
-  .h2h-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(195px, 1fr)); gap: 8px; margin-top: 8px; }}
-  .h2h-item {{ background: #0b1120; border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; font-size: 0.83rem; }}
+  .h2h-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); gap: 8px; margin-top: 8px; }}
+  .h2h-item {{ background: #0b1120; border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; font-size: 0.83rem; min-width: 0; }}
   .h2h-item .h-lbl {{ color: var(--muted); font-size: 0.76rem; margin-bottom: 2px; }}
   .h2h-adv {{ border-color: rgba(74,222,128,.55); }}
   .h2h-warn {{ border-color: rgba(248,113,113,.55); }}
-  .cutoff-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(175px, 1fr)); gap: 10px; margin: 12px 0 16px; }}
-  .cutoff-pill {{ background: #0f172a; border: 1px solid var(--border); border-radius: 10px; padding: 11px 13px; }}
+  .cutoff-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 175px), 1fr)); gap: 10px; margin: 12px 0 16px; }}
+  .cutoff-pill {{ background: #0f172a; border: 1px solid var(--border); border-radius: 10px; padding: 11px 13px; min-width: 0; }}
   .cutoff-pill .c-rank {{ color: var(--muted); font-size: 0.8rem; font-weight: 600; }}
   .cutoff-pill .c-score {{ font-size: 1.25rem; font-weight: 800; color: var(--accent2); margin: 2px 0; }}
   .cutoff-pill .c-tie {{ font-size: 0.78rem; color: #cbd5e1; }}
   .density-bar-wrap {{ width: 100%; background: #0b1120; border-radius: 999px; height: 14px; overflow: hidden; border: 1px solid var(--border); }}
   .density-bar {{ height: 100%; background: linear-gradient(90deg, #38bdf8, #818cf8); border-radius: 999px; }}
-  .bracket-kpis {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(195px, 1fr)); gap: 10px; margin: 12px 0; }}
-  .bracket-kpi {{ background: #0f172a; border: 1px solid var(--border); border-radius: 10px; padding: 11px 13px; }}
+  .bracket-kpis {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); gap: 10px; margin: 12px 0; }}
+  .bracket-kpi {{ background: #0f172a; border: 1px solid var(--border); border-radius: 10px; padding: 11px 13px; min-width: 0; }}
   .bracket-kpi .b-lbl {{ color: var(--muted); font-size: 0.8rem; }}
   .bracket-kpi .b-val {{ font-size: 1.2rem; font-weight: 700; color: var(--text); margin: 3px 0; }}
   .bracket-kpi .b-sub {{ font-size: 0.78rem; color: var(--muted); }}
-  .bracket-occ-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 8px; margin-top: 10px; }}
-  .bracket-occ-row {{ background: #0f172a; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 0.83rem; }}
+  .bracket-occ-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 8px; margin-top: 10px; }}
+  .bracket-occ-row {{ background: #0f172a; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 0.83rem; min-width: 0; }}
   .score-filter-banner {{ display: none; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; background: rgba(245,158,11,.13); border: 1px solid rgba(245,158,11,.55); border-radius: 10px; padding: 8px 12px; margin-bottom: 10px; font-size: 0.86rem; }}
   .score-filter-banner.open {{ display: flex; }}
-  .scout-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; margin-top: 10px; }}
+  .scout-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 10px; margin-top: 10px; }}
   .bo5-card {{ background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }}
   .bo5-card h4 {{ margin: 0 0 6px; font-size: 0.88rem; color: var(--accent); }}
   .builder-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 10px; margin: 14px 0; }}
@@ -197,14 +204,128 @@ def generate_html_report(
   .preset-btn:hover {{ background: rgba(56,189,248,.2); }}
   .zoomable-img {{ cursor: zoom-in; transition: transform 0.15s, box-shadow 0.15s; border-radius: 12px; border: 1px solid var(--border); }}
   .zoomable-img:hover {{ box-shadow: 0 0 0 2px var(--accent); }}
-  .cards-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(460px, 1fr)); gap: 16px; }}
-  .zoom-modal {{ position: fixed; inset: 0; background: rgba(5, 10, 20, 0.92); z-index: 9999; display: none; flex-direction: column; user-select: none; }}
+  .cards-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr)); gap: 16px; }}
+  .zoom-modal {{ position: fixed; inset: 0; background: rgba(5, 10, 20, 0.94); z-index: 9999; display: none; flex-direction: column; user-select: none; }}
   .zoom-modal.open {{ display: flex; }}
-  .zoom-toolbar {{ display: flex; justify-content: space-between; align-items: center; padding: 10px 18px; background: #0f172a; border-bottom: 1px solid var(--border); flex-wrap: wrap; gap: 10px; }}
-  .zoom-stage {{ flex: 1; overflow: hidden; position: relative; display: flex; align-items: center; justify-content: center; cursor: grab; }}
+  .zoom-toolbar {{ display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; background: #0f172a; border-bottom: 1px solid var(--border); flex-wrap: wrap; gap: 8px; }}
+  .zoom-stage {{ flex: 1; overflow: hidden; position: relative; display: flex; align-items: center; justify-content: center; cursor: grab; touch-action: none; }}
   .zoom-stage.dragging {{ cursor: grabbing; }}
-  .zoom-stage img {{ max-width: 94vw; max-height: 86vh; transform-origin: center center; transition: transform 0.05s linear; pointer-events: none; border-radius: 8px; }}
+  .zoom-stage img {{ max-width: 94vw; max-height: 86vh; transform-origin: center center; transition: transform 0.04s linear; pointer-events: none; border-radius: 8px; }}
   footer {{ text-align: center; color: var(--muted); font-size: 0.82rem; margin-top: 28px; }}
+
+  /* ================= Mobile-Friendly Responsive Layout (<= 768px) ================= */
+  @media (max-width: 768px) {{
+    .wrap {{ padding: 10px 10px 44px; }}
+    header {{ padding-bottom: 10px; margin-bottom: 12px; gap: 4px; }}
+    h1 {{ font-size: 1.24rem; }}
+    .sub {{ font-size: 0.82rem; }}
+    .kpis {{ grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }}
+    .kpi {{ padding: 10px 11px; border-radius: 10px; }}
+    .kpi .lbl {{ font-size: 0.74rem; }}
+    .kpi .val {{ font-size: 0.96rem; line-height: 1.3; }}
+
+    /* Sticky single-row swipeable tabs */
+    .tabs {{
+      position: sticky; top: 0; z-index: 30;
+      background: rgba(11, 17, 32, 0.95); backdrop-filter: blur(8px);
+      margin: 0 -10px 12px; padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+      flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none;
+    }}
+    .tabs::-webkit-scrollbar {{ display: none; }}
+    .tab {{ white-space: nowrap; flex-shrink: 0; padding: 8px 13px; font-size: 0.84rem; }}
+
+    .card {{ padding: 13px 11px; border-radius: 12px; margin-bottom: 12px; }}
+    .card h2 {{ font-size: 1.0rem; margin-bottom: 8px; }}
+    .desktop-only-hint {{ display: none !important; }}
+    .mobile-swipe-hint {{ display: block; }}
+
+    /* Horizontal swipeable chip rows so filters stay compact */
+    .filter-bar {{
+      flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch;
+      scrollbar-width: none; padding-bottom: 2px; margin-bottom: 8px;
+    }}
+    .filter-bar::-webkit-scrollbar {{ display: none; }}
+    .filter-bar > * {{ flex-shrink: 0; white-space: nowrap; }}
+    .chip-btn {{ padding: 6px 11px; font-size: 0.8rem; min-height: 34px; }}
+
+    /* Search & filter inputs full-width / 2-column */
+    .controls {{ gap: 7px; }}
+    .search-inp {{ flex: 1 0 100%; width: 100%; font-size: 0.92rem; padding: 9px 11px; }}
+    .controls select {{ flex: 1 1 46%; min-width: 0; font-size: 0.84rem; padding: 8px 9px; }}
+    #rawCount {{ flex: 1 0 100%; font-size: 0.78rem; }}
+
+    /* Transform 200-team Leaderboard Table into Clean Zero-Scroll Mobile Cards! */
+    .raw-table-wrap {{ max-height: none; overflow-x: visible; }}
+    #rawTable, #rawTable tbody {{ display: block; width: 100%; }}
+    #rawTable thead {{ display: none; }}
+    #rawTable tr.team-row {{
+      display: flex; flex-wrap: wrap; align-items: center; gap: 4px 7px;
+      background: #0f172a; border: 1px solid var(--border); border-radius: 11px;
+      padding: 10px 11px; margin-bottom: 8px;
+    }}
+    #rawTable tr.team-row.is-my-team {{
+      background: rgba(74, 222, 128, 0.12); border-color: rgba(74, 222, 128, 0.55);
+    }}
+    #rawTable tr.team-row td {{ display: block; border: 0; padding: 0; background: transparent !important; }}
+    #rawTable tr.team-row td.col-rank {{ order: 1; font-size: 0.92rem; color: var(--accent); min-width: 34px; }}
+    #rawTable tr.team-row td.col-name {{ order: 2; flex: 1 1 52%; min-width: 0; word-break: break-word; font-size: 0.92rem; }}
+    #rawTable tr.team-row td.col-score {{
+      order: 3; font-size: 0.78rem; font-weight: 700; color: var(--accent2);
+      background: rgba(245, 158, 11, 0.14) !important; border: 1px solid rgba(245, 158, 11, 0.35);
+      padding: 2px 7px; border-radius: 999px;
+    }}
+    #rawTable tr.team-row td.col-dp {{
+      order: 4; font-size: 0.75rem; color: #cbd5e1;
+      background: var(--card2) !important; padding: 2px 7px; border-radius: 999px;
+    }}
+    #rawTable tr.team-row td.col-occs {{
+      order: 5; flex: 1 0 100%; margin-top: 5px; padding-top: 6px;
+      border-top: 1px dashed rgba(148, 163, 184, 0.22);
+      display: flex; flex-wrap: wrap; gap: 4px;
+    }}
+    #rawTable tr.scout-detail-row {{ display: block; margin: -4px 0 10px; }}
+    #rawTable tr.scout-detail-row > td {{ display: block; padding: 0 !important; border: 0; background: transparent !important; }}
+    .pill {{ padding: 2px 6px; font-size: 0.74rem; gap: 3px; margin: 1px; }}
+    .ico {{ width: 20px; height: 20px; }}
+
+    /* Scout & H2H cards tight on mobile */
+    .scout-box {{ padding: 11px 11px; border-radius: 10px; }}
+    .scout-cols {{ grid-template-columns: 1fr; gap: 8px; }}
+    .scout-col {{ padding: 10px 11px; font-size: 0.83rem; line-height: 1.6; }}
+    .h2h-box {{ padding: 10px 10px; }}
+    .h2h-grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }}
+    .h2h-item {{ padding: 6px 8px; font-size: 0.78rem; }}
+
+    /* Tab 2 & Tab 3 statistical tables: sticky first col + crisp nowrap numbers */
+    .stat-table-wrap {{ max-height: 520px; }}
+    .stat-table-wrap table {{ font-size: 0.79rem; }}
+    .stat-table-wrap th, .stat-table-wrap td {{ padding: 7px 7px; white-space: nowrap; }}
+    .stat-table-wrap th:first-child, .stat-table-wrap td:first-child {{
+      position: sticky; left: 0; z-index: 2; background: var(--card);
+      box-shadow: 2px 0 6px rgba(0, 0, 0, 0.38);
+    }}
+    .stat-table-wrap th:first-child {{ z-index: 4; background: #0f172a; }}
+
+    /* Tab 3 grids compact 2-column */
+    .my-team-bar {{ padding: 11px; }}
+    #myTeamSelect {{ width: 100%; max-width: none !important; }}
+    .custom-slots {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
+    .cutoff-grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }}
+    .cutoff-pill {{ padding: 9px 10px; }}
+    .cutoff-pill .c-score {{ font-size: 1.05rem; }}
+    .cutoff-pill .c-tie {{ font-size: 0.74rem; }}
+    .bracket-kpis {{ grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }}
+    .bracket-kpi {{ padding: 9px 10px; }}
+    .bracket-kpi .b-val {{ font-size: 1.02rem; }}
+    .bracket-occ-grid {{ grid-template-columns: 1fr; gap: 6px; }}
+
+    /* Lightbox compact mobile toolbar */
+    .zoom-toolbar {{ padding: 8px 10px; gap: 6px; }}
+    #zoomModalTitle {{ font-size: 0.84rem; }}
+    .zoom-toolbar .chip-btn, .zoom-toolbar .preset-btn {{ padding: 5px 9px; font-size: 0.78rem; }}
+    .zoom-stage img {{ max-width: 98vw; max-height: 82vh; }}
+  }}
 </style>
 </head>
 <body>
@@ -228,17 +349,18 @@ def generate_html_report(
 
   <section id="tab-raw" class="panel active">
     <div class="card">
-      <h2>完整排行榜資料查詢 ＆ 實戰對手秒查（支援線上 Ctrl+V 截圖 OCR／免打泰文）</h2>
-      <div class="scout-box" style="margin-bottom:14px;background:#0f172a;border-color:rgba(56,189,248,.55)">
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
-          <div>
-            <b>📷 GitHub Pages 線上截圖秒查對手（免開本機伺服器）</b>
-            <div class="sub" style="font-size:0.84rem;margin-top:2px">
-              遊戲中按 <code>Win + Shift + S</code> 框選對手隊名後，直接在此網頁按 <b><code>Ctrl + V</code></b> 貼上！系統會以<b>「0.01秒原圖字形指紋」＋「免費多語系 OCR API (中/英/泰)」</b>雙重鎖定對手並展開對局提醒卡。
-            </div>
+      <h2>完整排行榜資料查詢 ＆ 實戰對手秒查 <span class="sub desktop-only-hint" style="font-size:0.82rem">支援線上 Ctrl+V 截圖 OCR／免打泰文</span></h2>
+      <details id="ocrScoutDetails" class="scout-box ocr-details" open style="margin-bottom:12px;background:#0f172a;border-color:rgba(56,189,248,.55)">
+        <summary>
+          <span>📷 截圖秒查對手（免開本機伺服器）</span>
+          <span class="ocr-summary-tag">點擊展開 / 收合</span>
+        </summary>
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-top:8px">
+          <div class="sub" style="font-size:0.83rem;margin-top:0">
+            <span class="desktop-only-hint">遊戲中按 <code>Win + Shift + S</code> 框選對手隊名後，直接按 <b><code>Ctrl + V</code></b> 貼上，或</span>點擊右側選取手機截圖，系統將以<b>「原圖字形指紋 ＋ 多語系 OCR (中/英/泰)」</b>鎖定對手並展開對局提醒卡。
           </div>
-          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
-            <select id="ocrModeSelect" style="font-size:0.82rem;padding:6px 10px">
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;width:100%">
+            <select id="ocrModeSelect" style="font-size:0.82rem;padding:6px 10px;max-width:100%;flex:1 1 220px">
               <option value="tesseract">⚡ 字形指紋 ＋ Tesseract.js 免費多語系 OCR (免Key)</option>
               <option value="ocrspace">☁️ 字形指紋 ＋ OCR.space 免費雲端 API</option>
               <option value="visual">👁️ 極速純原圖字形指紋比對 (0流量/泰文最穩)</option>
@@ -251,38 +373,38 @@ def generate_html_report(
           </div>
         </div>
         <div id="onlineScoutResult" style="display:none;margin-top:12px;padding-top:10px;border-top:1px solid var(--border)"></div>
-      </div>
+      </details>
 
       <div class="score-filter-banner" id="scoreFilterBanner">
         <span id="scoreFilterText"></span>
         <button class="chip-btn" id="btnClearScoreFilter" type="button">✖ 清除積分篩選（恢復顯示全部）</button>
       </div>
 
-      <div class="sub" style="background:#0f172a;border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:12px;line-height:1.6">
+      <div class="sub desktop-only-hint" style="display:block;background:#0f172a;border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:12px;line-height:1.6">
         🎯 <b>不截圖也能 3 秒查泰文對手：</b>
         先點下方<b>「語系秒篩」</b>（例如點 <code>🇹🇭 泰文隊</code>）＋<b>「外觀特徵」</b>（含數字 / 字數長短），免打字即可縮小範圍！<b>點擊表格任一戰隊列</b>可展開<b>【🎯 對手陣容特徵 ＆ 實戰對局提醒卡】</b>。
       </div>
       <div class="filter-bar" id="scriptFilterBar">
-        <span class="sub" style="margin-right:4px">語系秒篩：</span>
-        <button class="chip-btn active" data-script="all">🌐 全部語系</button>
+        <span class="sub" style="margin-right:4px">語系：</span>
+        <button class="chip-btn active" data-script="all">🌐 全部</button>
         <button class="chip-btn" data-script="th">🇹🇭 泰文隊</button>
         <button class="chip-btn" data-script="zh">🇹🇼 中文隊</button>
-        <button class="chip-btn" data-script="en">🔤 純英數隊</button>
+        <button class="chip-btn" data-script="en">🔤 純英數</button>
       </div>
       <div class="filter-bar" id="featFilterBar">
-        <span class="sub" style="margin-right:4px">外觀特徵：</span>
+        <span class="sub" style="margin-right:4px">特徵：</span>
         <button class="chip-btn active" data-feat="all">📏 全部長度</button>
-        <button class="chip-btn" data-feat="num">🔢 含數字 (0-9)</button>
-        <button class="chip-btn" data-feat="sym">✨ 含特殊符號/點</button>
-        <button class="chip-btn" data-feat="short">短名 (≤5字)</button>
-        <button class="chip-btn" data-feat="mid">中名 (6~9字)</button>
-        <button class="chip-btn" data-feat="long">長名 (≥10字)</button>
+        <button class="chip-btn" data-feat="num">🔢 含數字</button>
+        <button class="chip-btn" data-feat="sym">✨ 含符號</button>
+        <button class="chip-btn" data-feat="short">短名 ≤5字</button>
+        <button class="chip-btn" data-feat="mid">中名 6~9字</button>
+        <button class="chip-btn" data-feat="long">長名 ≥10字</button>
       </div>
       <div class="controls">
-        <input id="searchInput" type="search" placeholder="輸入部分英數/中文字、跳字縮寫或排名 (如 #12, enc, 88)..." style="min-width:300px">
-        <select id="occFilter"><option value="">篩選特定職業（全部）</option></select>
+        <input id="searchInput" class="search-inp" type="search" placeholder="搜尋隊名、跳字縮寫或排名 (如 #12, enc, 88)...">
+        <select id="occFilter"><option value="">篩選職業（全部）</option></select>
         <select id="dpFilter">
-          <option value="">篩選雙職業組數（全部）</option>
+          <option value="">篩選雙職業（全部）</option>
           <option value="0">0 組雙職業（8異職）</option>
           <option value="1">1 組雙職業</option>
           <option value="2">2 組雙職業</option>
@@ -290,20 +412,21 @@ def generate_html_report(
         </select>
         <span class="sub" id="rawCount"></span>
       </div>
-      <div class="table-wrap"><table id="rawTable"></table></div>
+      <div class="table-wrap raw-table-wrap"><table id="rawTable"></table></div>
     </div>
   </section>
 
   <section id="tab-quad" class="panel">
     <div class="card">
-      <h2>14 職業環境總表 ＆ Meta 四象限戰略圖 <span class="sub" style="font-size:0.82rem">💡 點擊任何圖卡可全螢幕放大與滾輪縮放</span></h2>
+      <h2>14 職業環境總表 ＆ Meta 四象限戰略圖 <span class="sub" style="font-size:0.82rem">💡 點擊圖卡可全螢幕放大縮放</span></h2>
       <div id="quadCardWrap" style="margin-bottom:14px"></div>
       <div class="sub" style="background:#0f172a;border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:12px;line-height:1.65">
         💡 <b>指標白話說明：</b><br>
         • <b>前段班偏好倍率</b>＝前段班（Top 50 / Top 10）出場率 ÷ 全場出場率。<b>&gt; 1.0x</b> 代表前段班強隊更愛帶；<b>≈ 1.0x</b> 代表各分段普及度相近；<b>&lt; 1.0x</b> 代表偏中後段帶得多。<br>
         • <b>名次相關性（-1 ～ +1）</b>＝衡量「帶越多隻該職業，名次是否越靠前」。<b>負值（綠色，如 -0.21 帶越多名次越前）代表強勢職業</b>；接近 0 代表無明顯關聯；<b>正值（紅色）代表偏中後段</b>。
       </div>
-      <div class="table-wrap"><table id="occTable"></table></div>
+      <div class="mobile-swipe-hint">← 左右滑動表格查看完整數據 →</div>
+      <div class="table-wrap stat-table-wrap"><table id="occTable"></table></div>
       <details style="margin-top:12px">
         <summary style="cursor:pointer;color:var(--accent);font-weight:600">🔍 展開互動式 SVG 向量版四象限圖</summary>
         <div class="quad-wrap" id="quadSvgBox" style="margin-top:10px"></div>
@@ -316,7 +439,8 @@ def generate_html_report(
       <div id="copyChartWrap" style="margin:12px 0"></div>
       <details style="margin-top:12px">
         <summary style="cursor:pointer;color:var(--accent);font-weight:600">📋 展開查看 0 / 1 / 2 隻原始數值明細表</summary>
-        <div class="table-wrap" style="margin-top:10px"><table id="copyTable"></table></div>
+        <div class="mobile-swipe-hint">← 左右滑動表格查看完整數據 →</div>
+        <div class="table-wrap stat-table-wrap" style="margin-top:10px"><table id="copyTable"></table></div>
       </details>
     </div>
 
@@ -326,9 +450,11 @@ def generate_html_report(
       <details style="margin-top:10px">
         <summary style="cursor:pointer;color:var(--accent);font-weight:600">📋 展開查看「各名次區間出場率明細表」與「雙職業組數結構表」</summary>
         <p class="sub" style="margin:10px 0 6px">💡 橫著從左往右看（左邊是前 10 名、右邊是後段班）：越左邊數字越高＝頂尖強隊越愛用。</p>
-        <div class="table-wrap" style="margin-bottom:14px"><table id="tierHeatTable"></table></div>
+        <div class="mobile-swipe-hint">← 左右滑動表格查看完整數據 →</div>
+        <div class="table-wrap stat-table-wrap" style="margin-bottom:14px"><table id="tierHeatTable"></table></div>
         <h3 style="font-size:0.98rem;margin:10px 0 6px">戰隊「雙職業組數」策略結構（8 異職 vs 1 / 2 / 3 組雙職業）</h3>
-        <div class="table-wrap"><table id="dpStructTable"></table></div>
+        <div class="mobile-swipe-hint">← 左右滑動表格查看完整數據 →</div>
+        <div class="table-wrap stat-table-wrap"><table id="dpStructTable"></table></div>
       </details>
     </div>
   </section>
@@ -381,7 +507,8 @@ def generate_html_report(
         <div id="cutoffGrid" class="cutoff-grid"></div>
         <details open>
           <summary style="cursor:pointer;color:var(--accent);font-weight:600">📊 各積分同分擠壓密度表（點擊任一積分列可立即檢視該分數段）</summary>
-          <div class="table-wrap" style="margin-top:10px"><table id="scoreDensityTable"></table></div>
+          <div class="mobile-swipe-hint">← 左右滑動表格查看完整數據 →</div>
+          <div class="table-wrap stat-table-wrap" style="margin-top:10px"><table id="scoreDensityTable"></table></div>
         </details>
       </div>
     </div>
@@ -394,15 +521,15 @@ def generate_html_report(
   <div class="zoom-toolbar">
     <div>
       <b id="zoomModalTitle" style="color:var(--accent)">圖表放大檢視</b>
-      <span class="sub" style="margin-left:10px">💡 滾輪：自由縮放 ｜ 按住滑鼠左鍵：拖曳平移 ｜ 雙擊圖片：切換 100% / 220%</span>
+      <span class="sub desktop-only-hint" style="margin-left:10px">💡 滾輪：自由縮放 ｜ 按住滑鼠左鍵：拖曳平移 ｜ 雙擊圖片：切換 100% / 220%</span>
     </div>
-    <div style="display:flex;gap:8px;align-items:center">
-      <button class="chip-btn" id="btnZoomOut">➖ 縮小</button>
-      <span id="zoomPctLabel" style="min-width:52px;text-align:center;font-weight:700">100%</span>
-      <button class="chip-btn" id="btnZoomIn">➕ 放大</button>
-      <button class="chip-btn" id="btnZoomReset">🔄 適應螢幕 (100%)</button>
-      <a class="preset-btn" id="btnZoomDownload" download="chart.png" style="text-decoration:none;padding:5px 12px">💾 下載高清圖卡</a>
-      <button class="preset-btn" id="btnZoomClose" style="background:rgba(248,113,113,.2);border-color:var(--red)">✖ 關閉 (Esc)</button>
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+      <button class="chip-btn" id="btnZoomOut">➖</button>
+      <span id="zoomPctLabel" style="min-width:44px;text-align:center;font-weight:700;font-size:0.84rem">100%</span>
+      <button class="chip-btn" id="btnZoomIn">➕</button>
+      <button class="chip-btn" id="btnZoomReset">🔄 100%</button>
+      <a class="preset-btn" id="btnZoomDownload" download="chart.png" style="text-decoration:none;padding:5px 10px">💾 <span class="desktop-only-hint">下載高清圖卡</span></a>
+      <button class="preset-btn" id="btnZoomClose" style="background:rgba(248,113,113,.2);border-color:var(--red)">✖ 關閉</button>
     </div>
   </div>
   <div class="zoom-stage" id="zoomStage">
@@ -999,14 +1126,14 @@ function renderRaw() {{
     const isMy = myTeam && myTeam.mode === 'rank' && myTeam.rank === r.rank;
     const myTag = isMy ? '<span class="q-tag q-dark" style="margin-right:6px">🛡️ 我方</span>' : '';
     rowsHtml += `<tr class="team-row ${{isMy ? 'is-my-team' : ''}}" onclick="toggleScoutRow(${{r.rank}})">
-      <td><b>#${{r.rank}}</b></td>
-      <td>${{myTag}}${{scriptBadge(detectScript(r.team_name))}}<b>${{esc(r.team_name)}}</b> <span class="sub" style="font-size:0.76rem">${{isExp ? '▲ 收合提醒' : '▼ 對局提醒'}}</span></td>
-      <td>${{r.score ?? '-'}}</td>
-      <td>${{r.double_pick_count}} 組</td>
-      <td>${{r.occupations.map(o => `<span class="pill ${{counts[o]>=2?'dp':''}}">${{ico(o)}}<span>${{esc(o)}}</span></span>`).join('')}}</td>
+      <td class="col-rank"><b>#${{r.rank}}</b></td>
+      <td class="col-name">${{myTag}}${{scriptBadge(detectScript(r.team_name))}}<b>${{esc(r.team_name)}}</b> <span class="sub" style="font-size:0.75rem">${{isExp ? '▲ 收合' : '▼ 提醒'}}</span></td>
+      <td class="col-score">${{r.score ?? '-'}}分</td>
+      <td class="col-dp">${{r.double_pick_count}} 組雙職</td>
+      <td class="col-occs">${{r.occupations.map(o => `<span class="pill ${{counts[o]>=2?'dp':''}}">${{ico(o)}}<span>${{esc(o)}}</span></span>`).join('')}}</td>
     </tr>`;
     if (isExp) {{
-      rowsHtml += `<tr><td colspan="5" style="padding:4px 10px 14px;background:#090e1a">${{buildScoutCardHtml(r)}}</td></tr>`;
+      rowsHtml += `<tr class="scout-detail-row"><td colspan="5" style="padding:4px 10px 14px;background:#090e1a">${{buildScoutCardHtml(r)}}</td></tr>`;
     }}
   }});
 
@@ -1506,9 +1633,14 @@ let renderBracketPresets = null;
     return (res && res.data && res.data.text ? res.data.text : '').replace(/\s+/g, ' ').trim();
   }}
 
+  // Collapse desktop-centric screenshot OCR box by default on narrow mobile screens so search & leaderboard start above the fold
+  const ocrDet = document.getElementById('ocrScoutDetails');
+  if (ocrDet && window.innerWidth <= 768) ocrDet.removeAttribute('open');
+
   function handleScreenshotDataUrl(rawDataUrl) {{
-    // Switch to Tab 1 if user pasted while viewing another tab
+    // Switch to Tab 1 and expand OCR box if user pasted while viewing another tab
     document.querySelector('.tab[data-tab="raw"]').click();
+    if (ocrDet) ocrDet.setAttribute('open', '');
     const img = new Image();
     img.onload = async () => {{
       const fp = preprocessAndExtractFp(img);
@@ -1649,6 +1781,76 @@ let renderBracketPresets = null;
     else {{ scale = 2.2; }}
     applyTransform();
   }});
+
+  // Mobile Touch Support: 2-finger pinch-to-zoom, 1-finger pan, double-tap zoom, tap-outside to close
+  let pinchStartDist = 0, pinchStartScale = 1, touchDragging = false;
+  let touchStartX = 0, touchStartY = 0, touchDownX = 0, touchDownY = 0, touchMoved = false, lastTapTime = 0;
+
+  stage.addEventListener('touchstart', ev => {{
+    if (ev.touches.length === 2) {{
+      ev.preventDefault();
+      touchDragging = false;
+      touchMoved = true;
+      pinchStartDist = Math.hypot(
+        ev.touches[0].clientX - ev.touches[1].clientX,
+        ev.touches[0].clientY - ev.touches[1].clientY
+      ) || 1;
+      pinchStartScale = scale;
+    }} else if (ev.touches.length === 1) {{
+      ev.preventDefault();
+      const t = ev.touches[0];
+      touchDragging = true;
+      touchMoved = false;
+      touchDownX = t.clientX;
+      touchDownY = t.clientY;
+      touchStartX = t.clientX - tx;
+      touchStartY = t.clientY - ty;
+    }}
+  }}, {{ passive: false }});
+
+  stage.addEventListener('touchmove', ev => {{
+    if (ev.touches.length === 2) {{
+      ev.preventDefault();
+      const dist = Math.hypot(
+        ev.touches[0].clientX - ev.touches[1].clientX,
+        ev.touches[0].clientY - ev.touches[1].clientY
+      );
+      scale = Math.max(0.5, Math.min(5, +(pinchStartScale * (dist / pinchStartDist)).toFixed(2)));
+      applyTransform();
+    }} else if (ev.touches.length === 1 && touchDragging) {{
+      ev.preventDefault();
+      const t = ev.touches[0];
+      if (Math.hypot(t.clientX - touchDownX, t.clientY - touchDownY) > 6) touchMoved = true;
+      tx = t.clientX - touchStartX;
+      ty = t.clientY - touchStartY;
+      applyTransform();
+    }}
+  }}, {{ passive: false }});
+
+  stage.addEventListener('touchend', ev => {{
+    if (ev.touches.length === 0) {{
+      if (touchDragging && !touchMoved && ev.changedTouches && ev.changedTouches[0]) {{
+        const t = ev.changedTouches[0];
+        const r = img.getBoundingClientRect();
+        const insideImg = t.clientX >= r.left && t.clientX <= r.right && t.clientY >= r.top && t.clientY <= r.bottom;
+        if (!insideImg) {{
+          closeZoom();
+        }} else {{
+          const now = Date.now();
+          if (now - lastTapTime < 300) {{
+            if (scale > 1.05) {{ scale = 1; tx = 0; ty = 0; }}
+            else {{ scale = 2.2; }}
+            applyTransform();
+            lastTapTime = 0;
+          }} else {{
+            lastTapTime = now;
+          }}
+        }}
+      }}
+      touchDragging = false;
+    }}
+  }});
+
   window.addEventListener('keydown', ev => {{
     if (ev.key === 'Escape' && modal.classList.contains('open')) closeZoom();
   }});

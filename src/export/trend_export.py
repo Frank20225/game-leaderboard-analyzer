@@ -468,15 +468,38 @@ def generate_trend_html(
   .chip-btn {{ background:#0f172a; color:var(--muted); border:1px solid var(--border); border-radius:999px; padding:5px 12px; font-size:.82rem; cursor:pointer; font-weight:600; }}
   .chip-btn.active {{ background:rgba(56,189,248,.2); color:#7dd3fc; border-color:var(--accent); }}
   input, select {{ background:#0b1120; color:var(--text); border:1px solid var(--border); border-radius:8px; padding:8px 12px; font-size:.9rem; }}
-  .grid-2 {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(420px,1fr)); gap:14px; }}
+  .grid-2 {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr)); gap:14px; }}
   .zoomable-img {{ cursor:zoom-in; transition:transform .15s,box-shadow .15s; border-radius:12px; border:1px solid var(--border); }}
   .zoomable-img:hover {{ box-shadow:0 0 0 2px var(--accent); }}
-  .zoom-modal {{ position:fixed; inset:0; background:rgba(5,10,20,.92); z-index:9999; display:none; flex-direction:column; user-select:none; }}
+  .zoom-modal {{ position:fixed; inset:0; background:rgba(5,10,20,.94); z-index:9999; display:none; flex-direction:column; user-select:none; }}
   .zoom-modal.open {{ display:flex; }}
-  .zoom-toolbar {{ display:flex; justify-content:space-between; align-items:center; padding:10px 18px; background:#0f172a; border-bottom:1px solid var(--border); flex-wrap:wrap; gap:10px; }}
-  .zoom-stage {{ flex:1; overflow:hidden; position:relative; display:flex; align-items:center; justify-content:center; cursor:grab; }}
+  .zoom-toolbar {{ display:flex; justify-content:space-between; align-items:center; padding:10px 16px; background:#0f172a; border-bottom:1px solid var(--border); flex-wrap:wrap; gap:8px; }}
+  .zoom-stage {{ flex:1; overflow:hidden; position:relative; display:flex; align-items:center; justify-content:center; cursor:grab; touch-action:none; }}
   .zoom-stage.dragging {{ cursor:grabbing; }}
-  .zoom-stage img {{ max-width:94vw; max-height:86vh; transform-origin:center center; transition:transform .05s linear; pointer-events:none; border-radius:8px; }}
+  .zoom-stage img {{ max-width:94vw; max-height:86vh; transform-origin:center center; transition:transform .04s linear; pointer-events:none; border-radius:8px; }}
+  @media (max-width: 768px) {{
+    html, body {{ overflow-x:hidden; }}
+    .wrap {{ padding:10px 10px 44px; }}
+    h1 {{ font-size:1.24rem; }}
+    .sub {{ font-size:.82rem; }}
+    .kpis {{ grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-bottom:12px; }}
+    .kpi {{ padding:10px 11px; }}
+    .kpi .val {{ font-size:.96rem; }}
+    .tabs {{ position:sticky; top:0; z-index:30; background:rgba(11,17,32,.95); backdrop-filter:blur(8px); margin:0 -10px 12px; padding:8px 10px; border-bottom:1px solid var(--border); flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; }}
+    .tabs::-webkit-scrollbar {{ display:none; }}
+    .tab {{ white-space:nowrap; flex-shrink:0; padding:8px 12px; font-size:.83rem; }}
+    .card {{ padding:13px 11px; margin-bottom:12px; }}
+    .card h2 {{ font-size:1rem; }}
+    .filter-bar {{ flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; }}
+    .filter-bar::-webkit-scrollbar {{ display:none; }}
+    .filter-bar > * {{ flex-shrink:0; white-space:nowrap; }}
+    table {{ font-size:.8rem; }}
+    th, td {{ padding:7px 7px; white-space:nowrap; }}
+    th:first-child, td:first-child {{ position:sticky; left:0; z-index:2; background:var(--card); box-shadow:2px 0 6px rgba(0,0,0,.35); }}
+    th:first-child {{ z-index:4; background:#0f172a; }}
+    .zoom-toolbar {{ padding:8px 10px; gap:6px; }}
+    .zoom-stage img {{ max-width:98vw; max-height:82vh; }}
+  }}
 </style>
 </head>
 <body>
@@ -801,6 +824,42 @@ document.getElementById('changeTbl').innerHTML =
   stage.addEventListener('dblclick', () => {{
     if (scale > 1.05) {{ scale = 1; tx = 0; ty = 0; }} else {{ scale = 2.2; }}
     applyTransform();
+  }});
+  let pinchDist = 0, pinchScale = 1, tDrag = false, tSX = 0, tSY = 0, tDX = 0, tDY = 0, tMoved = false, lastTap = 0;
+  stage.addEventListener('touchstart', ev => {{
+    if (ev.touches.length === 2) {{
+      ev.preventDefault(); tDrag = false; tMoved = true;
+      pinchDist = Math.hypot(ev.touches[0].clientX - ev.touches[1].clientX, ev.touches[0].clientY - ev.touches[1].clientY) || 1;
+      pinchScale = scale;
+    }} else if (ev.touches.length === 1) {{
+      ev.preventDefault(); const t = ev.touches[0];
+      tDrag = true; tMoved = false; tDX = t.clientX; tDY = t.clientY; tSX = t.clientX - tx; tSY = t.clientY - ty;
+    }}
+  }}, {{ passive: false }});
+  stage.addEventListener('touchmove', ev => {{
+    if (ev.touches.length === 2) {{
+      ev.preventDefault();
+      const d = Math.hypot(ev.touches[0].clientX - ev.touches[1].clientX, ev.touches[0].clientY - ev.touches[1].clientY);
+      scale = Math.max(0.5, Math.min(5, +(pinchScale * (d / pinchDist)).toFixed(2))); applyTransform();
+    }} else if (ev.touches.length === 1 && tDrag) {{
+      ev.preventDefault(); const t = ev.touches[0];
+      if (Math.hypot(t.clientX - tDX, t.clientY - tDY) > 6) tMoved = true;
+      tx = t.clientX - tSX; ty = t.clientY - tSY; applyTransform();
+    }}
+  }}, {{ passive: false }});
+  stage.addEventListener('touchend', ev => {{
+    if (ev.touches.length === 0) {{
+      if (tDrag && !tMoved && ev.changedTouches && ev.changedTouches[0]) {{
+        const t = ev.changedTouches[0], r = img.getBoundingClientRect();
+        if (!(t.clientX >= r.left && t.clientX <= r.right && t.clientY >= r.top && t.clientY <= r.bottom)) closeZoom();
+        else {{
+          const now = Date.now();
+          if (now - lastTap < 300) {{ if (scale > 1.05) {{ scale = 1; tx = 0; ty = 0; }} else {{ scale = 2.2; }} applyTransform(); lastTap = 0; }}
+          else lastTap = now;
+        }}
+      }}
+      tDrag = false;
+    }}
   }});
   window.addEventListener('keydown', ev => {{
     if (ev.key === 'Escape' && modal.classList.contains('open')) closeZoom();

@@ -80,14 +80,14 @@ def _inject_cross_report_nav(reports_root: Path, all_metas: list[dict[str, Any]]
                 else "background:#0f172a;color:#cbd5e1;border-color:#273552;"
             )
             links_html.append(
-                f'<a href="../{html.escape(o_slug)}/index.html" style="text-decoration:none;padding:5px 12px;border-radius:999px;border:1px solid;font-size:0.82rem;display:inline-flex;align-items:center;gap:4px;{style}">{icon} {o_title}</a>'
+                f'<a href="../{html.escape(o_slug)}/index.html" class="gla-nav-pill" style="text-decoration:none;padding:4px 10px;border-radius:999px;border:1px solid;font-size:0.8rem;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;flex-shrink:0;{style}">{icon} {o_title}</a>'
             )
 
         nav_block = (
             '<!-- GLA_NAV_START -->'
-            '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;background:#131c31;border:1px solid #273552;border-radius:12px;padding:10px 14px;margin-bottom:16px">'
-            '<a href="../../index.html" style="text-decoration:none;background:#1c2842;color:#38bdf8;border:1px solid #38bdf8;padding:6px 13px;border-radius:8px;font-weight:700;font-size:0.85rem;display:inline-flex;align-items:center;gap:5px">🏠 返回戰報總覽首頁</a>'
-            f'<div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px"><span style="color:#94a3b8;font-size:0.82rem">⇄ 快速切換戰報：</span>{"".join(links_html)}</div>'
+            '<div class="gla-nav-bar" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;background:#131c31;border:1px solid #273552;border-radius:12px;padding:8px 12px;margin-bottom:14px">'
+            '<a href="../../index.html" style="text-decoration:none;background:#1c2842;color:#38bdf8;border:1px solid #38bdf8;padding:5px 11px;border-radius:8px;font-weight:700;font-size:0.82rem;display:inline-flex;align-items:center;gap:5px;white-space:nowrap">🏠 戰報總覽</a>'
+            f'<div style="display:flex;align-items:center;gap:6px;overflow-x:auto;max-width:100%;-webkit-overflow-scrolling:touch;padding-bottom:1px"><span style="color:#94a3b8;font-size:0.78rem;white-space:nowrap">⇄ 切換：</span>{"".join(links_html)}</div>'
             '</div>'
             '<!-- GLA_NAV_END -->'
         )
@@ -129,7 +129,7 @@ def rebuild_docs_index(target_docs: Path = DOCS_DIR) -> Path:
         badge = (
             '<span class="badge trend">📈 跨期聯賽積分榜＆強度趨勢</span>'
             if is_trend
-            else '<span class="badge single">📊 單期環境＆BO5拆陣報告</span>'
+            else '<span class="badge single">📊 單期環境＆教練備戰報告</span>'
         )
         sub_line = (
             f"對比期數：{html.escape(str(m.get('periods', '-')))} ｜ 最佳上分體系：{html.escape(str(m.get('top_occupation', '-')))}"
@@ -166,13 +166,21 @@ def rebuild_docs_index(target_docs: Path = DOCS_DIR) -> Path:
   .badge {{ font-size:.78rem; font-weight:700; padding:3px 10px; border-radius:999px; }}
   .badge.single {{ background:rgba(56,189,248,.18); color:#7dd3fc; }}
   .badge.trend {{ background:rgba(74,222,128,.2); color:#86efac; }}
-  .meta {{ color:#cbd5e1; font-size:.9rem; margin-top:3px; }}
+  .meta {{ color:#cbd5e1; font-size:.9rem; margin-top:3px; line-height:1.5; }}
+  @media (max-width: 640px) {{
+    .wrap {{ padding: 18px 12px 36px; }}
+    h1 {{ font-size: 1.32rem; }}
+    .sub {{ font-size: .86rem; margin-bottom: 18px; }}
+    .card {{ padding: 14px 14px; border-radius: 12px; }}
+    .title {{ font-size: 1.06rem; }}
+    .meta {{ font-size: .82rem; }}
+  }}
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>🏆 遊戲排位賽環境分析戰報總覽</h1>
-  <div class="sub">點擊任一場次即可檢視互動圖表、線上截圖秒查對手、BO5 五局出場推演與跨期聯賽積分榜。</div>
+  <div class="sub">點擊任一場次即可檢視互動圖表、線上截圖秒查對手、同分圈假想敵分析與跨期聯賽積分榜。</div>
   {cards_html or '<div class="sub">尚未發佈任何分析戰報。</div>'}
 </div>
 </body>
