@@ -709,8 +709,10 @@ $("btnPublishPages").onclick = async () => {
     });
     const box = $("pagesResultBox");
     box.style.display = "block";
+    const liveUrl = `https://frank20225.github.io/game-leaderboard-analyzer/reports/${res.slug}/index.html`;
     box.innerHTML =
       `✅ 已發佈至 <code>docs/reports/${res.slug}/index.html</code> 並更新 <code>docs/index.html</code>！<br>` +
+      `🔗 英文分享網址：<a href="${liveUrl}" target="_blank" style="color:var(--accent)">${liveUrl}</a><br>` +
       `${res.git_message || "可透過 GitHub Pages 公開分享連結。"}`;
     await refreshPublishedPagesList();
   } catch (e) {
@@ -813,8 +815,10 @@ if ($("btnPublishTrendPages")) {
       const box = $("trendPagesResultBox");
       if (box) {
         box.style.display = "block";
+        const liveUrl = `https://frank20225.github.io/game-leaderboard-analyzer/reports/${res.slug}/index.html`;
         box.innerHTML =
           `✅ 跨期聯賽積分榜與趨勢報告已發佈至 <code>docs/reports/${res.slug}/index.html</code> 並更新首頁 <code>docs/index.html</code>！<br>` +
+          `🔗 英文分享網址：<a href="${liveUrl}" target="_blank" style="color:var(--accent)">${liveUrl}</a><br>` +
           `${res.git_message || "可透過 GitHub Pages 公開分享。"}`;
       }
       await refreshPublishedPagesList();

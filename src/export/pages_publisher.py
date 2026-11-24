@@ -29,18 +29,74 @@ def _ensure_leading_date(title: str) -> str:
     return f"{datetime.now().strftime('%m%d')}{clean}"
 
 
+_ASCII_SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+
+_ZH_SLUG_HINTS: list[tuple[str, str]] = [
+    ("女武神", "valkyrie"),
+    ("總決賽", "finals"),
+    ("決賽", "finals"),
+    ("預賽", "qualifiers"),
+    ("初賽", "qualifiers"),
+    ("季後賽", "playoffs"),
+    ("測試", "test"),
+    ("練習", "practice"),
+]
+
+
 def _slugify(text: str) -> str:
-    s = re.sub(r"[^\w\-]+", "-", text.strip().lower()).strip("-")
-    return s or datetime.now().strftime("report-%Y%m%d-%H%M%S")
+    """Strict ASCII-only lowercase URL slug (a-z, 0-9, hyphen)."""
+    s = re.sub(r"[^a-z0-9]+", "-", (text or "").strip().lower()).strip("-")
+    return re.sub(r"-{2,}", "-", s)
+
+
+def _make_english_slug(title: str, report_type: str = "single") -> str:
+    """Generate a clean ASCII English URL slug from a (possibly Chinese) report title."""
+    clean = (title or "").strip()
+    now = datetime.now()
+
+    rest = clean
+    m_ymd = re.match(r"^(20\d{2})[-_/]?(\d{2})[-_/]?(\d{2})(.*)$", clean)
+    if m_ymd:
+        date_part = f"{m_ymd.group(1)}-{m_ymd.group(2)}-{m_ymd.group(3)}"
+        rest = m_ymd.group(4)
+    else:
+        m_md = re.match(r"^(\d{2})(\d{2})(.*)$", clean)
+        if m_md and 1 <= int(m_md.group(1)) <= 12 and 1 <= int(m_md.group(2)) <= 31:
+            date_part = f"{now.year}-{m_md.group(1)}-{m_md.group(2)}"
+            rest = m_md.group(3)
+        else:
+            date_part = now.strftime("%Y-%m-%d")
+
+    tokens: list[str] = []
+    for zh_kw, en_kw in _ZH_SLUG_HINTS:
+        if zh_kw in rest and en_kw not in tokens:
+            tokens.append(en_kw)
+
+    for w in re.findall(r"[a-zA-Z0-9]+", rest.lower()):
+        if w not in tokens:
+            tokens.append(w)
+
+    if not tokens:
+        tokens.append("valkyrie")
+
+    suffix = "trend" if report_type == "trend" else "meta"
+    if suffix not in tokens:
+        tokens.append(suffix)
+
+    slug = _slugify(f"{date_part}-" + "-".join(tokens))[:64].strip("-")
+    return slug or f"{date_part}-{suffix}"
 
 
 def _resolve_dedup_slug_and_clean(
     reports_root: Path,
     title: str,
     explicit_slug: str | None,
+    report_type: str = "single",
 ) -> Path:
-    """Reuse existing folder slug for the same title and remove any duplicate folders with that title."""
+    """Resolve a strictly ASCII English slug, reusing an existing ASCII slug for the same title
+    and removing any duplicate or legacy non-ASCII folders with that title."""
     existing_same_title_dirs: list[Path] = []
+    other_title_slugs: set[str] = set()
     for sub in sorted(reports_root.iterdir()):
         mp = sub / "meta.json"
         if sub.is_dir() and mp.is_file():
@@ -48,15 +104,29 @@ def _resolve_dedup_slug_and_clean(
                 m_old = json.loads(mp.read_text(encoding="utf-8"))
                 if m_old.get("title") == title:
                     existing_same_title_dirs.append(sub)
+                else:
+                    other_title_slugs.add(sub.name)
             except Exception:
                 continue
 
     if explicit_slug:
-        slug = _slugify(explicit_slug)
-    elif existing_same_title_dirs:
-        slug = existing_same_title_dirs[0].name
+        if explicit_slug.isascii():
+            slug = _slugify(explicit_slug) or _make_english_slug(title, report_type)
+        else:
+            slug = _make_english_slug(explicit_slug, report_type)
     else:
-        slug = _slugify(title[:36])
+        ascii_existing = [d.name for d in existing_same_title_dirs if _ASCII_SLUG_RE.match(d.name)]
+        if ascii_existing:
+            slug = ascii_existing[0]
+        else:
+            slug = _make_english_slug(title, report_type)
+
+    if slug in other_title_slugs:
+        base = slug
+        idx = 2
+        while f"{base}-{idx}" in other_title_slugs:
+            idx += 1
+        slug = f"{base}-{idx}"
 
     dest = reports_root / slug
     dest.mkdir(parents=True, exist_ok=True)
@@ -216,7 +286,7 @@ def publish_to_github_pages(
     (target_docs / ".nojekyll").touch(exist_ok=True)
 
     title = _ensure_leading_date(analytics.get("report_title", "女武神職業環境分析報告"))
-    dest = _resolve_dedup_slug_and_clean(reports_root, title, report_slug)
+    dest = _resolve_dedup_slug_and_clean(reports_root, title, report_slug, report_type="single")
     slug = dest.name
 
     html_src = src_share / "report.html"
@@ -267,7 +337,7 @@ def publish_trend_to_github_pages(
     (target_docs / ".nojekyll").touch(exist_ok=True)
 
     title = _ensure_leading_date(trend.get("trend_title", "女武神聯賽跨期積分榜與趨勢"))
-    dest = _resolve_dedup_slug_and_clean(reports_root, title, report_slug)
+    dest = _resolve_dedup_slug_and_clean(reports_root, title, report_slug, report_type="trend")
     slug = dest.name
 
     html_src = src_dir / "trend_report.html"
