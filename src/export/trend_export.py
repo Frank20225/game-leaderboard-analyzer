@@ -22,6 +22,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from src.config import ICON_DB_DIR
+from src.export.chart_layout import fit_texts_inside_axes_x, short_period_label
 from src.export.excel_writer import _autofit_columns, _style_table
 
 plt.rcParams["font.sans-serif"] = ["Microsoft JhengHei", "Noto Sans CJK TC", "SimHei", "DejaVu Sans"]
@@ -244,8 +245,8 @@ def generate_trend_cards(trend: dict[str, Any], cards_dir: str | Path) -> list[s
     if not occ_trends:
         return created
 
-    short_l0 = labels[0][:10]
-    short_l1 = labels[-1][:10]
+    short_l0 = short_period_label(labels[0])
+    short_l1 = short_period_label(labels[-1])
 
     # Card 1: Regular-Sample Occupation Avg Rank Evolution (Dumbbell Chart: Period 1 -> Latest)
     reg_occs = [
@@ -257,14 +258,24 @@ def generate_trend_cards(trend: dict[str, Any], cards_dir: str | Path) -> list[s
     reg_sorted = sorted(reg_occs, key=lambda r: float(r["latest_avg_rank"]))
     items = list(reversed(reg_sorted))
 
-    fig, ax = plt.subplots(figsize=(11.5, max(5.8, len(items) * 0.52)), facecolor="#0f172a")
+    fig, ax = plt.subplots(figsize=(12.4, max(6.4, len(items) * 0.58 + 1.1)), facecolor="#0f172a")
     ax.set_facecolor("#162033")
     if items:
         y = np.arange(len(items))
         r_first = [float(r["first_avg_rank"]) for r in items]
         r_last = [float(r["latest_avg_rank"]) for r in items]
 
-        ax.axvline(100.5, color="#475569", linestyle="--", linewidth=1.2, label="全場平均線 (#100.5)")
+        # Subtle alternating horizontal bands so every row tracks effortlessly
+        for idx in range(len(items)):
+            if idx % 2 == 0:
+                ax.axhspan(idx - 0.5, idx + 0.5, color="#1b273d", alpha=0.55, zorder=0)
+
+        ax.axvline(100.5, color="#475569", linestyle="--", linewidth=1.2, label="全場平均線 (#100.5)", zorder=1)
+        all_v = r_first + r_last
+        ax.set_xlim(max(all_v) + 12.0, max(1.0, min(all_v) - 12.0))  # Right side = higher rank (#1)
+        ax.set_ylim(-0.65, len(items) - 0.35)
+
+        text_artists = []
         for idx, r in enumerate(items):
             f_val = r_first[idx]
             l_val = r_last[idx]
@@ -275,7 +286,7 @@ def generate_trend_cards(trend: dict[str, Any], cards_dir: str | Path) -> list[s
                 [f_val],
                 [idx],
                 color="#64748b",
-                s=72,
+                s=76,
                 zorder=3,
                 label=f"{short_l0} 均排" if idx == len(items) - 1 else "",
             )
@@ -283,15 +294,32 @@ def generate_trend_cards(trend: dict[str, Any], cards_dir: str | Path) -> list[s
                 [l_val],
                 [idx],
                 color=col,
-                s=115,
+                s=118,
                 marker="D",
                 zorder=4,
                 label=f"{short_l1} 均排" if idx == len(items) - 1 else "",
             )
             txt = f"#{f_val:.1f} → #{l_val:.1f} ({gain:+.1f}名｜Top30 {r['latest_top30_presence']*100:.0f}%)"
-            offset = -1.6 if l_val <= f_val else 1.6
-            ha = "left" if l_val <= f_val else "right"
-            ax.text(l_val + offset, idx + 0.16, txt, color="#f8fafc", fontsize=9.0, fontweight="bold", ha=ha, va="bottom")
+            # Place label vertically centered outside the dumbbell tip (right if improved, left if dropped)
+            if l_val <= f_val:
+                anchor_x = min(f_val, l_val)
+                dx_pt, ha = 10.0, "left"
+            else:
+                anchor_x = max(f_val, l_val)
+                dx_pt, ha = -10.0, "right"
+            ann = ax.annotate(
+                txt,
+                xy=(anchor_x, idx),
+                xytext=(dx_pt, 0.0),
+                textcoords="offset points",
+                color="#f8fafc",
+                fontsize=9.0,
+                fontweight="bold",
+                ha=ha,
+                va="center",
+                zorder=6,
+            )
+            text_artists.append(ann)
 
         ax.set_yticks(y)
         ax.set_yticklabels(
@@ -300,22 +328,32 @@ def generate_trend_cards(trend: dict[str, Any], cards_dir: str | Path) -> list[s
             fontsize=10.3,
             fontweight="bold",
         )
-        all_v = r_first + r_last
-        ax.set_xlim(max(all_v) + 18, max(1, min(all_v) - 24))  # Right side = higher rank (#1)
         ax.set_xlabel("持有該職業戰隊之平均排名（越靠右側代表平均排名越高 →）", color="#e2e8f0", fontsize=10.8)
         ax.tick_params(axis="x", colors="#cbd5e1")
-        ax.grid(True, color="#334155", linestyle=":", alpha=0.6)
+        ax.grid(axis="x", color="#334155", linestyle=":", alpha=0.6)
         for spine in ax.spines.values():
             spine.set_color("#334155")
-        ax.legend(loc="lower left", facecolor="#0f172a", edgecolor="#475569", labelcolor="#f8fafc", fontsize=9.5)
+        # Legend placed cleanly OUTSIDE above the plot so it NEVER overlaps any data row
+        ax.legend(
+            loc="upper center",
+            bbox_to_anchor=(0.5, 1.075),
+            ncol=3,
+            facecolor="#0f172a",
+            edgecolor="#475569",
+            labelcolor="#f8fafc",
+            fontsize=9.5,
+        )
         ax.set_title(
             f"{title}｜正規樣本職業 (>=5%) 跨期平均排名演變（{short_l0} → {short_l1}）",
             color="#ffffff",
             fontsize=13.0,
             fontweight="bold",
-            pad=14,
+            pad=36,
         )
-    fig.tight_layout()
+        fig.tight_layout()
+        fit_texts_inside_axes_x(fig, ax, text_artists, pad_px=16.0)
+    else:
+        fig.tight_layout()
     p1 = out_dir / "01_meta_trend_lines.png"
     fig.savefig(str(p1), dpi=180, facecolor=fig.get_facecolor())
     plt.close(fig)
@@ -330,9 +368,12 @@ def generate_trend_cards(trend: dict[str, Any], cards_dir: str | Path) -> list[s
         [r for r in occ_trends if r.get("low_sample")],
         key=lambda r: float(r["avg_rank_gain"] or 0.0),
     )
-    # In horizontal bar chart, y=0 is bottom -> put low_m first (bottom), then reg_m (top, highest gain at very top)
+    # Put a dedicated empty gap between low_m (bottom) and reg_m (top) so the warning banner never crowds any bar
+    gap_rows = 1.05 if (low_m and reg_m) else 0.0
+    y_low = [float(i) for i in range(len(low_m))]
+    y_reg = [float(len(low_m) + gap_rows + i) for i in range(len(reg_m))]
     movers = low_m + reg_m
-    y = np.arange(len(movers))
+    y_coords = np.array(y_low + y_reg, dtype=float)
     gains = [float(r["avg_rank_gain"] or 0.0) for r in movers]
     colors = [
         "#64748b"
@@ -341,26 +382,34 @@ def generate_trend_cards(trend: dict[str, Any], cards_dir: str | Path) -> list[s
         for r in movers
     ]
 
-    fig, ax = plt.subplots(figsize=(11.2, max(6.0, len(movers) * 0.46)), facecolor="#0f172a")
+    fig, ax = plt.subplots(figsize=(12.4, max(6.4, (len(movers) + gap_rows) * 0.50 + 0.8)), facecolor="#0f172a")
     ax.set_facecolor("#162033")
-    ax.axvline(0, color="#94a3b8", linewidth=1.2)
-    bars = ax.barh(y, gains, color=colors, height=0.62)
+
+    for yc in y_coords:
+        if int(round(yc)) % 2 == 0:
+            ax.axhspan(yc - 0.48, yc + 0.48, color="#1b273d", alpha=0.45, zorder=0)
+
+    ax.axvline(0, color="#94a3b8", linewidth=1.2, zorder=2)
+    bars = ax.barh(y_coords, gains, color=colors, height=0.62, zorder=3)
 
     if low_m and reg_m:
-        sep_y = len(low_m) - 0.5
-        ax.axhline(sep_y, color="#f59e0b", linestyle="--", linewidth=1.1, alpha=0.75)
+        sep_line_y = len(low_m) - 0.02
+        ax.axhline(sep_line_y, color="#f59e0b", linestyle="--", linewidth=1.2, alpha=0.85, zorder=4)
         ax.text(
-            0.01,
-            sep_y - 0.08,
+            0.015,
+            sep_line_y + 0.36,
             "▼ 以下為樣本偏小 (<5%) 職業，波動幅度僅供參考",
             transform=ax.get_yaxis_transform(),
             color="#fbbf24",
-            fontsize=8.6,
+            fontsize=8.8,
             fontweight="bold",
-            va="top",
+            va="center",
+            ha="left",
+            bbox=dict(boxstyle="round,pad=0.22", fc="#0f172a", ec="#f59e0b", alpha=0.88),
+            zorder=5,
         )
 
-    ax.set_yticks(y)
+    ax.set_yticks(y_coords)
     ax.set_yticklabels(
         [
             f"{r['occupation']} (樣本小 n={r['team_count_series'][-1]})" if r.get("low_sample") else r["occupation"]
@@ -370,30 +419,38 @@ def generate_trend_cards(trend: dict[str, Any], cards_dir: str | Path) -> list[s
         fontsize=10.2,
         fontweight="bold",
     )
-    max_abs = max(max(abs(g) for g in gains), 5.0)
-    ax.set_xlim(-max_abs * 1.55, max_abs * 1.55)
-    for b, r in zip(bars, movers):
+    ax.set_ylim(-0.65, float(y_coords[-1]) + 0.65)
+    min_g = min(min(gains), -4.0)
+    max_g = max(max(gains), 4.0)
+    ax.set_xlim(min_g * 1.25 - 4.0, max_g * 1.25 + 4.0)
+
+    bar_texts = []
+    for yc, r in zip(y_coords, movers):
         g = float(r["avg_rank_gain"] or 0.0)
         ha = "left" if g >= 0 else "right"
-        pad = max_abs * 0.03 if g >= 0 else -max_abs * 0.03
+        dx_pt = 7.0 if g >= 0 else -7.0
         t30_d = r.get("top30_presence_delta", 0.0) * 100
-        f_r = f"#{r['first_avg_rank']}" if r.get("first_avg_rank") is not None else "-"
-        l_r = f"#{r['latest_avg_rank']}" if r.get("latest_avg_rank") is not None else "-"
+        f_r = f"#{float(r['first_avg_rank']):.1f}" if r.get("first_avg_rank") is not None else "-"
+        l_r = f"#{float(r['latest_avg_rank']):.1f}" if r.get("latest_avg_rank") is not None else "-"
         lbl_txt = (
-            f"{g:+.1f}名 ({f_r}→{l_r}｜樣本偏小 n={r['team_count_series'][0]}→{r['team_count_series'][-1]})"
+            f"{g:+.1f}名 ({f_r}→{l_r}｜樣本小 n={r['team_count_series'][0]}→{r['team_count_series'][-1]})"
             if r.get("low_sample")
             else f"{g:+.1f}名 ({f_r}→{l_r}｜爬升率{r.get('climber_rate',0)*100:.0f}%｜Top30 {t30_d:+.1f}%)"
         )
-        ax.text(
-            g + pad,
-            b.get_y() + b.get_height() / 2,
+        ann = ax.annotate(
             lbl_txt,
+            xy=(g, yc),
+            xytext=(dx_pt, 0.0),
+            textcoords="offset points",
             va="center",
             ha=ha,
             color="#cbd5e1" if r.get("low_sample") else "#f8fafc",
             fontsize=8.6,
             fontweight="bold",
+            zorder=6,
         )
+        bar_texts.append(ann)
+
     ax.set_xlabel(f"持有該職業戰隊之平均排名爬升量：{short_l0} → {short_l1}（正值＝整體名次上升）", color="#e2e8f0", fontsize=10.5)
     ax.tick_params(axis="x", colors="#cbd5e1")
     ax.grid(axis="x", color="#334155", linestyle=":", alpha=0.6)
@@ -407,6 +464,7 @@ def generate_trend_cards(trend: dict[str, Any], cards_dir: str | Path) -> list[s
         pad=14,
     )
     fig.tight_layout()
+    fit_texts_inside_axes_x(fig, ax, bar_texts, pad_px=16.0)
     p2 = out_dir / "02_meta_movers_delta.png"
     fig.savefig(str(p2), dpi=180, facecolor=fig.get_facecolor())
     plt.close(fig)

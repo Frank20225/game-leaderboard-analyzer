@@ -567,29 +567,98 @@ document.querySelectorAll('.tab').forEach(btn => btn.onclick = () => {{
   document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
 }});
 
-// Render crisp inline SVG Meta Quadrant (Scheme A: exclude <5% low-sample occupations so axes stay crisp)
+// Render crisp inline SVG Meta Quadrant with deterministic bbox collision avoidance
 (function renderQuad() {{
   const mainRows = A.occupation_frequency.filter(r => !r.low_sample);
   const rows = mainRows.length ? mainRows : A.occupation_frequency;
   const excl = A.occupation_frequency.filter(r => r.low_sample);
   if (!rows.length) return;
-  const W = 920, H = 540, padL = 62, padR = 30, padT = 36, padB = 48;
-  const minR = Math.max(1, Math.min(...rows.map(r => r.avg_rank)) - 2);
-  const maxR = Math.max(...rows.map(r => r.avg_rank)) + 2.2;
-  const xOf = p => padL + (p / 105) * (W - padL - padR);
+  const W = 920, H = 540, padL = 64, padR = 36, padT = 38, padB = 50;
+  const minR = Math.max(1, Math.min(...rows.map(r => r.avg_rank)) - 2.4);
+  const maxR = Math.max(...rows.map(r => r.avg_rank)) + 2.6;
+  const xOf = p => padL + ((p + 4) / 112) * (W - padL - padR);
   const yOf = r => padT + ((r - minR) / Math.max(1, maxR - minR)) * (H - padT - padB);
   const xMid = xOf(50), yMid = yOf(ov.overall_avg_rank);
 
-  let items = '';
-  rows.forEach((r, idx) => {{
-    const cx = xOf(r.team_presence_rate * 100);
-    const cy = yOf(r.avg_rank);
-    const clipId = 'clip_' + idx;
-    const imgTag = ICONS[r.occupation]
-      ? `<defs><clipPath id="${{clipId}}"><circle cx="${{cx}}" cy="${{cy}}" r="15"/></clipPath></defs><image href="${{ICONS[r.occupation]}}" x="${{cx-15}}" y="${{cy-15}}" width="30" height="30" clip-path="url(#${{clipId}})"/>`
-      : `<circle cx="${{cx}}" cy="${{cy}}" r="11" fill="#38bdf8"/>`;
-    items += `${{imgTag}}<text x="${{cx}}" y="${{cy+27}}" text-anchor="middle" fill="#f8fafc" font-size="11" font-weight="700">${{esc(r.occupation)}} #${{r.avg_rank}}</text>`;
+  const pts = rows.map((r, idx) => ({{
+    r, idx,
+    cx: xOf(r.team_presence_rate * 100),
+    cy: yOf(r.avg_rank),
+    lbl: `${{r.occupation}} #${{r.avg_rank}}`,
+  }}));
+
+  // Fixed obstacle rectangles: 4 corner quadrant titles + all occupation icons
+  const placed = [
+    [W - padR - 210, padT + 2, W - padR - 4, padT + 28],
+    [padL + 4, padT + 2, padL + 150, padT + 28],
+    [W - padR - 110, H - padB - 28, W - padR - 4, H - padB - 4],
+    [padL + 4, H - padB - 28, padL + 95, H - padB - 4],
+  ];
+  pts.forEach(p => placed.push([p.cx - 18, p.cy - 18, p.cx + 18, p.cy + 18]));
+
+  const ovArea = (a, b) => {{
+    const ix = Math.min(a[2], b[2]) - Math.max(a[0], b[0]);
+    const iy = Math.min(a[3], b[3]) - Math.max(a[1], b[1]);
+    return (ix > 0 && iy > 0) ? ix * iy : 0;
+  }};
+  const estW = s => [...s].reduce((acc, ch) => acc + (ch.charCodeAt(0) > 127 ? 11.4 : 6.6), 12);
+
+  // Place tightest clusters first
+  const order = pts.map((_, i) => i).sort((a, b) => {{
+    const dMin = i => Math.min(...pts.filter((_, j) => j !== i).map(q => Math.hypot(pts[i].cx - q.cx, pts[i].cy - q.cy)), 999);
+    return dMin(a) - dMin(b);
   }});
+
+  const angles = [90, -90, 0, 180, 45, 135, -45, -135, 25, 65, 115, 155, -25, -65, -115, -155];
+  const radii = [27, 36, 48, 62, 78, 96];
+  const placements = new Array(pts.length);
+
+  order.forEach(i => {{
+    const p = pts[i];
+    const bw = estW(p.lbl), bh = 18;
+    let best = {{ lx: p.cx, ly: p.cy + 27, dist: 27, rect: [p.cx - bw/2, p.cy + 18, p.cx + bw/2, p.cy + 36] }};
+    let bestCost = Infinity;
+    for (const rad of radii) {{
+      for (const ang of angles) {{
+        const th = ang * Math.PI / 180;
+        const lx = p.cx + rad * Math.cos(th);
+        const ly = p.cy + rad * Math.sin(th);
+        const rect = [lx - bw/2 - 3, ly - bh/2 - 3, lx + bw/2 + 3, ly + bh/2 + 3];
+        let outPen = 0;
+        if (rect[0] < padL + 4) outPen += (padL + 4 - rect[0]) * 60;
+        if (rect[2] > W - padR - 4) outPen += (rect[2] - (W - padR - 4)) * 60;
+        if (rect[1] < padT + 4) outPen += (padT + 4 - rect[1]) * 60;
+        if (rect[3] > H - padB - 4) outPen += (rect[3] - (H - padB - 4)) * 60;
+        let ov = 0;
+        for (const obs of placed) ov += ovArea(rect, obs);
+        const cost = ov * 10 + outPen + rad * 0.5;
+        if (cost < bestCost) {{
+          bestCost = cost;
+          best = {{ lx, ly, dist: rad, rect, bw, bh }};
+          if (ov === 0 && outPen === 0 && rad <= 28) break;
+        }}
+      }}
+      if (bestCost < 15) break;
+    }}
+    placed.push(best.rect);
+    placements[i] = best;
+  }});
+
+  let iconsHtml = '';
+  let labelsHtml = '';
+  pts.forEach((p, idx) => {{
+    const clipId = 'clip_' + idx;
+    iconsHtml += ICONS[p.r.occupation]
+      ? `<defs><clipPath id="${{clipId}}"><circle cx="${{p.cx}}" cy="${{p.cy}}" r="15"/></clipPath></defs><image href="${{ICONS[p.r.occupation]}}" x="${{p.cx-15}}" y="${{p.cy-15}}" width="30" height="30" clip-path="url(#${{clipId}})"/>`
+      : `<circle cx="${{p.cx}}" cy="${{p.cy}}" r="11" fill="#38bdf8"/>`;
+    const pl = placements[idx];
+    if (pl.dist > 30) {{
+      labelsHtml += `<line x1="${{p.cx}}" y1="${{p.cy}}" x2="${{pl.lx}}" y2="${{pl.ly}}" stroke="#64748b" stroke-width="1" stroke-opacity="0.8"/>`;
+    }}
+    labelsHtml += `<rect x="${{pl.lx - pl.bw/2}}" y="${{pl.ly - pl.bh/2}}" width="${{pl.bw}}" height="${{pl.bh}}" rx="4" fill="#0f172a" fill-opacity="0.88" stroke="#334155" stroke-width="0.9"/>`;
+    labelsHtml += `<text x="${{pl.lx}}" y="${{pl.ly + 4}}" text-anchor="middle" fill="#f8fafc" font-size="11" font-weight="700">${{esc(p.lbl)}}</text>`;
+  }});
+  const items = iconsHtml + labelsHtml;
 
   const exclHtml = excl.length
     ? `<div class="sub" style="margin-top:6px;text-align:center;font-size:0.82rem">ⓘ 已排除出場率 &lt;5% 極低樣本職業以免拉歪座標軸：${{excl.map(r => `${{esc(r.occupation)}} (${{r.team_count}}隊)`).join('、')}}</div>`
